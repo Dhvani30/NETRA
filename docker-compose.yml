@@ -1,0 +1,77 @@
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: intel_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - intel_network
+
+  mongo-express:
+    image: mongo-express
+    container_name: intel_mongo_gui
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password123
+      ME_CONFIG_MONGODB_URL: mongodb://admin:password123@mongodb:27017/?authSource=admin
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      - mongodb
+    networks:
+      - intel_network
+
+  neo4j:
+    image: neo4j:5.11
+    container_name: intel_neo4j
+    restart: always
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/password123
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - intel_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: intel_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - intel_network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: intel_redis_gui
+    restart: always
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8082:8081"
+    depends_on:
+      - redis
+    networks:
+      - intel_network
+
+volumes:
+  mongo_data:
+  neo4j_data:
+  redis_data:
+
+networks:
+  intel_network:
+    driver: bridge
