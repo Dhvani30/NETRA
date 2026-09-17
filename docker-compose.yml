@@ -67,10 +67,27 @@ services:
     networks:
       - intel_network
 
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: intel_n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - intel_network
+
 volumes:
   mongo_data:
   neo4j_data:
   redis_data:
+  n8n_data:
 
 networks:
   intel_network:
