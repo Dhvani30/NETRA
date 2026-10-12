@@ -84,13 +84,13 @@ def get_messages(limit: int = Query(20, ge=1, le=100), platform: str | None = Qu
 def get_live_summary():
     try:
         now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(hours=1)
+        cutoff = now - timedelta(days=7)
         recent_query = {"$or": [
             {"published_at": {"$gte": cutoff.isoformat()}},
             {"published_at": {"$gte": cutoff}},
         ]}
         total_posts = raw_posts.count_documents({})
-        last_hour_posts = raw_posts.count_documents(recent_query)
+        last_week_posts = raw_posts.count_documents(recent_query)
         latest_post = raw_posts.find_one(
             {"published_at": {"$exists": True, "$ne": None}},
             {"_id": 0, "published_at": 1, "platform": 1},
@@ -118,11 +118,11 @@ def get_live_summary():
         ]))
         return {
             "total_posts": total_posts,
-            "last_hour_posts": last_hour_posts,
+            "last_week_posts": last_week_posts,
             "newest_post_age_seconds": newest_post_age_seconds,
             "newest_post_platform": latest_post.get("platform") if latest_post else None,
             "newest_post_published_at": latest_published_at,
-            "platform_counts_last_hour": [{"platform": row["_id"], "count": row["count"]} for row in platform_counts],
+            "platform_counts_last_week": [{"platform": row["_id"], "count": row["count"]} for row in platform_counts],
             "generated_at": now.isoformat(),
         }
     except PyMongoError as e:

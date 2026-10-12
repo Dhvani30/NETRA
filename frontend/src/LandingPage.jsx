@@ -109,7 +109,7 @@ export default function LandingPage() {
             </div>
             <article className="preview-summary glass-panel">
               <div className="preview-summary__header">
-                <h2>Collected volume, last hour</h2>
+                <h2>Collected volume, last 7 days</h2>
                 <span className={`source-pill ${summaryUnavailable ? 'is-unavailable' : 'is-live'}`}>
                   {summaryUnavailable ? 'Live API unavailable' : summaryLoading && !liveSummary ? 'Connecting to live API…' : `Live · updated ${liveSummary ? new Date(liveSummary.generated_at).toLocaleTimeString() : '—'}`}
                 </span>
@@ -118,12 +118,12 @@ export default function LandingPage() {
                 </button>
               </div>
               <div className="preview-live">
-                <div className="preview-live__count">{liveSummary ? formatNumber(liveSummary.last_hour_posts) : '—'}</div>
-                <p>{summaryUnavailable ? 'Live statistics could not be loaded. Check the API connection.' : liveSummary?.last_hour_posts ? 'Posts collected during the last hour.' : liveSummary ? 'No posts were collected during the last hour.' : 'Loading current collection statistics…'}</p>
-                <div className="preview-platforms" aria-label="Posts by platform during the last hour">
-                  {liveSummary?.platform_counts_last_hour?.length ? liveSummary.platform_counts_last_hour.map((platform) => (
+                <div className="preview-live__count">{liveSummary ? formatNumber(liveSummary.last_week_posts) : '—'}</div>
+                <p>{summaryUnavailable ? 'Live statistics could not be loaded. Check the API connection.' : liveSummary?.last_week_posts ? 'Posts collected during the last 7 days.' : liveSummary ? 'No posts were collected during the last 7 days.' : 'Loading current collection statistics…'}</p>
+                <div className="preview-platforms" aria-label="Posts by platform during the last 7 days">
+                  {liveSummary?.platform_counts_last_week?.length ? liveSummary.platform_counts_last_week.map((platform) => (
                     <span className="preview-platform" key={platform.platform}><i />{platform.platform} <strong>{formatNumber(platform.count)}</strong></span>
-                  )) : liveSummary && <span className="preview-platforms__empty">No platform activity in the last hour</span>}
+                  )) : liveSummary && <span className="preview-platforms__empty">No platform activity in the last 7 days</span>}
                 </div>
               </div>
             </article>
