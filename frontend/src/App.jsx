@@ -9,6 +9,7 @@ import CrossPlatformView from './components/CrossPlatformView';
 import AlertsView from './components/AlertsView';
 import DemographicsView from './components/DemographicsView';
 import NetworkIntelligenceView from './components/NetworkIntelligenceView';
+import PlatformFeedView from './components/PlatformFeedView';
 import { Badge, Button, Card, Input } from './components/ui/primitives';
 import { API_URL } from './config';
 import './components/AnalyticsView.css';
@@ -35,7 +36,7 @@ const getFeedPlatform = (platform = '') => {
 function App() {
   const [activeTab, setActiveTab] = useState(() => {
     const requestedView = new URLSearchParams(window.location.search).get('view');
-    return ['analytics', 'mutation', 'correlation', 'alerts', 'demographics', 'network_intel', 'graph'].includes(requestedView) ? requestedView : 'analytics';
+    return ['analytics', 'mutation', 'correlation', 'alerts', 'demographics', 'network_intel', 'graph', 'youtube', 'telegram', 'instagram'].includes(requestedView) ? requestedView : 'analytics';
   });
   const [sentimentData, setSentimentData] = useState([]);
   const [narrativeData, setNarrativeData] = useState([]);
@@ -159,6 +160,15 @@ function App() {
             </Button>
             <Button variant="nav" active={activeTab === 'graph'} onClick={() => setActiveTab('graph')}>
               Network Graph
+            </Button>
+            <Button variant="nav" active={activeTab === 'youtube'} onClick={() => setActiveTab('youtube')}>
+              YouTube Feed
+            </Button>
+            <Button variant="nav" active={activeTab === 'telegram'} onClick={() => setActiveTab('telegram')}>
+              Telegram Feed
+            </Button>
+            <Button variant="nav" active={activeTab === 'instagram'} onClick={() => setActiveTab('instagram')}>
+              Instagram Feed
             </Button>
             
             {/* 🔄 FIXED REFRESH BUTTON */}
@@ -285,6 +295,14 @@ function App() {
           )}
           
           {/* 🔄 PASSING REFRESH KEY TO FORCE REMOUNT */}
+          {['youtube', 'telegram', 'instagram'].includes(activeTab) && (
+            <PlatformFeedView
+              platform={activeTab}
+              posts={messages.filter((msg) => getFeedPlatform(msg.platform)?.toLowerCase() === activeTab)}
+              loading={loading}
+              onRefresh={fetchData}
+            />
+          )}
           {activeTab === 'mutation' && (
             <NarrativeTracker key={refreshKey} />
           )}
