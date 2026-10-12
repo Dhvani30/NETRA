@@ -65,9 +65,17 @@ def health():
     return {"status": "ok"}
 
 @app.get("/api/v1/messages")
-def get_messages(limit: int = Query(20, ge=1, le=100)):
+def get_messages(limit: int = Query(20, ge=1, le=100), platform: str | None = Query(None)):
     try:
-        cursor = raw_posts.find({}, {"_id": 0}).sort("published_at", -1).limit(limit)
+        query = {}
+        platform_patterns = {
+            "telegram": "telegram",
+            "instagram": "instagram|meta|facebook",
+            "youtube": "youtube|^yt$",
+        }
+        if platform and platform.lower() in platform_patterns:
+            query["platform"] = {"$regex": platform_patterns[platform.lower()], "$options": "i"}
+        cursor = raw_posts.find(query, {"_id": 0}).sort("published_at", -1).limit(limit)
         return {"messages": _mongo_documents_to_json(list(cursor))}
     except PyMongoError as e: 
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
@@ -75,9 +83,15 @@ def get_messages(limit: int = Query(20, ge=1, le=100)):
 @app.get("/api/v1/analytics/sentiment")
 def get_sentiment():
     try:
-        pipeline = [{"$group": {"_id": "$sentiment_label", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
+        pipeline = [
+            {"$group": {
+                "_id": {"$toUpper": {"$ifNull": ["$sentiment_label", {"$ifNull": ["$ai_analysis.sentiment_label", "NEUTRAL"]}]}},
+                "count": {"$sum": 1},
+            }},
+            {"$sort": {"count": -1}},
+        ]
         results = list(raw_posts.aggregate(pipeline))
-        return {"sentiment_breakdown": [{"label": r["_id"] if r["_id"] else "Neutral", "count": r["count"]} for r in results]}
+        return {"sentiment_breakdown": [{"label": r["_id"] or "NEUTRAL", "count": r["count"]} for r in results]}
     except PyMongoError as e: 
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
 

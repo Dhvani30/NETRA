@@ -14,6 +14,15 @@
 .analytics-view__loading p { margin:0; }
 .analytics-view__loading-icon { width:var(--ds-space-20); height:var(--ds-space-20); color:var(--ds-color-accent-bright); }
 .analytics-view__feed { display:flex; flex-direction:column; max-height:min(480px,70vh); overflow-y:auto; }
+.analytics-view__platform-feeds { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ds-space-16); align-items:start; }
+.analytics-view__platform-feed { min-width:0; overflow:hidden; border:var(--ds-space-1) solid var(--ds-color-glass-border); border-radius:var(--ds-radius-md); }
+.analytics-view__platform-feed h3 { margin:0; padding:var(--ds-space-12); border-bottom:var(--ds-space-1) solid var(--ds-color-glass-border); color:var(--ds-color-text-1); font-size:var(--ds-type-13); }
+.analytics-view__platform-empty { margin:0; padding:var(--ds-space-12); color:var(--ds-color-text-3); font-size:var(--ds-type-12); }
+.analytics-view__table { width:100%; border-collapse:collapse; font-size:var(--ds-type-11); }
+.analytics-view__table th,.analytics-view__table td { padding:var(--ds-space-8); border-bottom:var(--ds-space-1) solid var(--ds-color-glass-border); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+.analytics-view__table th { color:var(--ds-color-text-3); font-weight:var(--ds-weight-medium); }
+.analytics-view__table td { color:var(--ds-color-text-2); }
+.analytics-view__table tbody tr:last-child td { border-bottom:0; }
 .analytics-view__message { padding:var(--ds-space-12) 0; border-bottom:var(--ds-space-1) solid var(--ds-color-glass-border); }
 .analytics-view__message:last-child { border-bottom:0; }
 .analytics-view__message-meta { display:flex; align-items:center; flex-wrap:wrap; gap:var(--ds-space-8); color:var(--ds-color-text-3); font-family:var(--ds-font-mono),monospace; font-size:var(--ds-type-10); }
@@ -25,6 +34,7 @@
 .analytics-view__message-text { margin:var(--ds-space-8) 0 0; color:var(--ds-color-text-2); font-size:var(--ds-type-12); line-height:var(--ds-leading-relaxed); overflow-wrap:anywhere; }
 @media (max-width:900px) {
   .analytics-view__grid { grid-template-columns:minmax(0,1fr); gap:var(--ds-space-16); }
+  .analytics-view__platform-feeds { grid-template-columns:minmax(0,1fr); }
   .analytics-view__feed-card { grid-column:auto; }
   .analytics-view__card { padding:var(--ds-space-16); }
 }

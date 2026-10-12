@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { Search, Globe, MessageSquare, RefreshCw, Share2 } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import InvestigationView from './components/InvestigationView';
 import NetworkGraph from './components/NetworkGraph';
 import NarrativeTracker from './components/NarrativeTracker';
@@ -13,7 +13,24 @@ import { Badge, Button, Card, Input } from './components/ui/primitives';
 import { API_URL } from './config';
 import './components/AnalyticsView.css';
 
-const SENTIMENT_COLORS = { Positive: 'var(--ds-color-green-muted)', Negative: 'var(--ds-color-red-muted)', Neutral: 'var(--ds-color-amber-muted)', ABSTAIN: 'var(--ds-color-text-3)' };
+const SENTIMENT_COLORS = { POSITIVE: 'var(--ds-color-green-muted)', NEGATIVE: 'var(--ds-color-red-muted)', NEUTRAL: 'var(--ds-color-amber-muted)', ABSTAIN: 'var(--ds-color-text-3)' };
+
+const normalizeSentimentData = (items) => {
+  const counts = new Map();
+  items.forEach((item) => {
+    const label = String(item.label || 'NEUTRAL').trim().toUpperCase() || 'NEUTRAL';
+    counts.set(label, (counts.get(label) || 0) + Number(item.count || 0));
+  });
+  return Array.from(counts, ([label, count]) => ({ label, count }));
+};
+
+const getFeedPlatform = (platform = '') => {
+  const value = String(platform).toLowerCase();
+  if (value.includes('telegram')) return 'Telegram';
+  if (value.includes('instagram') || value === 'meta' || value.includes('facebook')) return 'Instagram';
+  if (value.includes('youtube') || value === 'yt') return 'YouTube';
+  return null;
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -41,12 +58,12 @@ function App() {
         axios.get(`${API_URL}/analytics/sentiment`),
         axios.get(`${API_URL}/analytics/narratives`),
         axios.get(`${API_URL}/graph/data`),
-        axios.get(`${API_URL}/messages?limit=20`)
+        Promise.all(['telegram', 'instagram', 'youtube'].map((platform) => axios.get(`${API_URL}/messages?limit=100&platform=${platform}`)))
       ]);
-      setSentimentData(sentimentRes.data.sentiment_breakdown || []);
+      setSentimentData(normalizeSentimentData(sentimentRes.data.sentiment_breakdown || []));
       setNarrativeData(narrativeRes.data.clusters || []);
       setGraphData(graphRes.data || { nodes: [], links: [] });
-      setMessages(messagesRes.data.messages || []);
+      setMessages(messagesRes.flatMap((response) => response.data.messages || []));
       setLastUpdated(new Date());
     } catch (error) { 
       console.error('Error fetching data:', error); 
@@ -105,13 +122,6 @@ function App() {
       runSearch(initialQuery);
     }
   }, []);
-
-  const getPlatformIcon = (platform) => {
-    const p = platform?.toLowerCase() || '';
-    if (p.includes('twitter') || p.includes('x')) return <Share2 className="w-4 h-4" />;
-    if (p.includes('reddit')) return <MessageSquare className="w-4 h-4" />;
-    return <Globe className="w-4 h-4" />;
-  };
 
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return 'Unknown';
@@ -211,8 +221,8 @@ function App() {
                       <div className="analytics-view__chart">
                         <ResponsiveContainer width="100%" height={240}>
                           <PieChart>
-                            <Pie data={sentimentData} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
-                              {sentimentData.map((entry, index) => <Cell key={"cell-" + index} fill={SENTIMENT_COLORS[entry.label] || 'var(--ds-color-text-3)'} />)}
+                            <Pie data={sentimentData.filter((entry) => entry.count > 0)} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
+                              {sentimentData.filter((entry) => entry.count > 0).map((entry) => <Cell key={entry.label} fill={SENTIMENT_COLORS[entry.label] || 'var(--ds-color-text-3)'} />)}
                             </Pie>
                             <Tooltip contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
                             <Legend wrapperStyle={{ color: 'var(--ds-color-text-2)' }} />
@@ -244,18 +254,28 @@ function App() {
                     {messages.length === 0 ? (
                       <div className="analytics-view__empty"><p>No messages available.</p></div>
                     ) : (
-                      <div className="analytics-view__feed">
-                        {messages.map((msg, i) => (
-                          <article key={i} className="analytics-view__message">
-                            <div className="analytics-view__message-meta">
-                              <span className="analytics-view__platform-icon">{getPlatformIcon(msg.platform)}</span>
-                              <span className="analytics-view__platform">{msg.platform?.toUpperCase() || 'UNKNOWN'}</span>
-                              <span className="analytics-view__separator">·</span>
-                              <span className="analytics-view__time">{getRelativeTime(msg.published_at)}</span>
-                            </div>
-                            <p className="analytics-view__message-text">{msg.text_content?.substring(0, 150) || 'No content'}...</p>
-                          </article>
-                        ))}
+                      <div className="analytics-view__platform-feeds">
+                        {['Telegram', 'Instagram', 'YouTube'].map((platform) => {
+                          const platformMessages = messages.filter((msg) => getFeedPlatform(msg.platform) === platform);
+                          return (
+                            <section className="analytics-view__platform-feed" key={platform} aria-labelledby={`feed-${platform.toLowerCase()}`}>
+                              <h3 id={`feed-${platform.toLowerCase()}`}>{platform}</h3>
+                              {platformMessages.length ? (
+                                <div className="analytics-view__feed">
+                                  <table className="analytics-view__table">
+                                    <thead><tr><th scope="col">Published</th><th scope="col">Content</th></tr></thead>
+                                    <tbody>{platformMessages.map((msg, i) => (
+                                      <tr key={msg._id || `${platform}-${i}`}>
+                                        <td>{getRelativeTime(msg.published_at)}</td>
+                                        <td>{msg.text_content?.substring(0, 240) || 'No content'}</td>
+                                      </tr>
+                                    ))}</tbody>
+                                  </table>
+                                </div>
+                              ) : <p className="analytics-view__platform-empty">No {platform} messages available.</p>}
+                            </section>
+                          );
+                        })}
                       </div>
                     )}
                   </Card>
