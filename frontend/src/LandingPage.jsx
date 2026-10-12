@@ -1,7 +1,17 @@
-﻿import { useState } from 'react';
-import { ArrowRight, Search, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { API_URL } from './config';
+import { ArrowRight, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import './LandingPage.css';
 
+const formatNumber = (value) => Number(value || 0).toLocaleString();
+
+function formatAge(seconds) {
+  if (seconds == null) return 'Waiting for data';
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
 const capabilities = [
   ['Deep search', 'search'],
   ['Narrative mutation', 'mutation'],
@@ -17,7 +27,30 @@ function DashboardLink({ children, className = '' }) {
 export default function LandingPage() {
   const [query, setQuery] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [liveSummary, setLiveSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryUnavailable, setSummaryUnavailable] = useState(false);
 
+  const refreshSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/live/summary`, { cache: 'no-store', headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } });
+      if (!response.ok) throw new Error(`Live summary returned ${response.status}`);
+      setLiveSummary(await response.json());
+      setSummaryUnavailable(false);
+    } catch (error) {
+      console.error('Unable to load live summary:', error);
+      setSummaryUnavailable(true);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSummary();
+    const interval = window.setInterval(refreshSummary, 60000);
+    return () => window.clearInterval(interval);
+  }, [refreshSummary]);
   const handleSearch = (event) => {
     event.preventDefault();
     const cleanQuery = query.trim();
@@ -25,7 +58,10 @@ export default function LandingPage() {
       setSearchError('Enter a topic, narrative, or entity to search.');
       return;
     }
-    window.location.assign(`/dashboard/?q=${encodeURIComponent(cleanQuery)}`);
+    const destination = new URL('/dashboard/', window.location.origin);
+    destination.searchParams.set('view', 'analytics');
+    destination.searchParams.set('q', cleanQuery);
+    window.location.assign(destination.toString());
   };
 
   return (
@@ -62,23 +98,33 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="intelligence-preview glass-panel" aria-label="Live intelligence summary preview">
+          <div className="intelligence-preview glass-panel" aria-label="Live intelligence summary preview" aria-live="polite">
             <div className="preview-stats">
               <article className="preview-stat glass-panel">
-                <strong>378</strong><span>illustrative preview</span>
+                <strong>{liveSummary ? formatNumber(liveSummary.total_posts) : '—'}</strong><span>Total collected posts</span>
               </article>
               <article className="preview-stat glass-panel">
-                <strong>104084s</strong><span>illustrative only</span>
+                <strong>{liveSummary ? formatAge(liveSummary.newest_post_age_seconds) : '—'}</strong><span>Age of newest post</span>
               </article>
             </div>
             <article className="preview-summary glass-panel">
               <div className="preview-summary__header">
                 <h2>Collected volume, last hour</h2>
-                <span className="source-pill">No /live/summary endpoint</span>
+                <span className={`source-pill ${summaryUnavailable ? 'is-unavailable' : 'is-live'}`}>
+                  {summaryUnavailable ? 'Live API unavailable' : summaryLoading && !liveSummary ? 'Connecting to live API…' : `Live · updated ${liveSummary ? new Date(liveSummary.generated_at).toLocaleTimeString() : '—'}`}
+                </span>
+                <button className="preview-refresh" type="button" onClick={refreshSummary} disabled={summaryLoading} aria-label="Refresh live statistics">
+                  <RefreshCw size={15} className={summaryLoading ? 'is-spinning' : ''} />
+                </button>
               </div>
-              <div className="preview-empty">
-                <p>No collected volume in the last hour.</p>
-                <span>The current API does not expose a live summary endpoint.</span>
+              <div className="preview-live">
+                <div className="preview-live__count">{liveSummary ? formatNumber(liveSummary.last_hour_posts) : '—'}</div>
+                <p>{summaryUnavailable ? 'Live statistics could not be loaded. Check the API connection.' : liveSummary?.last_hour_posts ? 'Posts collected during the last hour.' : liveSummary ? 'No posts were collected during the last hour.' : 'Loading current collection statistics…'}</p>
+                <div className="preview-platforms" aria-label="Posts by platform during the last hour">
+                  {liveSummary?.platform_counts_last_hour?.length ? liveSummary.platform_counts_last_hour.map((platform) => (
+                    <span className="preview-platform" key={platform.platform}><i />{platform.platform} <strong>{formatNumber(platform.count)}</strong></span>
+                  )) : liveSummary && <span className="preview-platforms__empty">No platform activity in the last hour</span>}
+                </div>
               </div>
             </article>
           </div>
@@ -156,7 +202,7 @@ export default function LandingPage() {
             <div className="privacy-card__copy">
               <p>Audience demographics and sentiment metrics are presented as aggregated measures.</p>
               <p>The backend also stores source post records and may include account identifiers. Data access and retention depend on the deployment configuration.</p>
-              <p>Dashboard counts and charts reflect API responses. This landing page keeps its metrics empty because a live summary endpoint is not implemented.</p>
+              <p>Dashboard metrics on this page refresh from the live summary API every minute.</p>
             </div>
           </div>
         </section>

@@ -80,6 +80,53 @@ def get_messages(limit: int = Query(20, ge=1, le=100), platform: str | None = Qu
     except PyMongoError as e: 
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
 
+@app.get("/api/v1/live/summary")
+def get_live_summary():
+    try:
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=1)
+        recent_query = {"$or": [
+            {"published_at": {"$gte": cutoff.isoformat()}},
+            {"published_at": {"$gte": cutoff}},
+        ]}
+        total_posts = raw_posts.count_documents({})
+        last_hour_posts = raw_posts.count_documents(recent_query)
+        latest_post = raw_posts.find_one(
+            {"published_at": {"$exists": True, "$ne": None}},
+            {"_id": 0, "published_at": 1, "platform": 1},
+            sort=[("published_at", -1)],
+        )
+        latest_published_at = latest_post.get("published_at") if latest_post else None
+        if isinstance(latest_published_at, str):
+            try:
+                latest_published_at = datetime.fromisoformat(latest_published_at.replace("Z", "+00:00"))
+            except ValueError:
+                latest_published_at = None
+        if isinstance(latest_published_at, datetime):
+            if latest_published_at.tzinfo is None:
+                latest_published_at = latest_published_at.replace(tzinfo=timezone.utc)
+            newest_post_age_seconds = max(0, int((now - latest_published_at).total_seconds()))
+            latest_published_at = latest_published_at.isoformat()
+        else:
+            newest_post_age_seconds = None
+            latest_published_at = None
+
+        platform_counts = list(raw_posts.aggregate([
+            {"$match": recent_query},
+            {"$group": {"_id": {"$toLower": {"$ifNull": ["$platform", "unknown"]}}, "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+        ]))
+        return {
+            "total_posts": total_posts,
+            "last_hour_posts": last_hour_posts,
+            "newest_post_age_seconds": newest_post_age_seconds,
+            "newest_post_platform": latest_post.get("platform") if latest_post else None,
+            "newest_post_published_at": latest_published_at,
+            "platform_counts_last_hour": [{"platform": row["_id"], "count": row["count"]} for row in platform_counts],
+            "generated_at": now.isoformat(),
+        }
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=f"Live summary unavailable: {str(e)}")
 @app.get("/api/v1/analytics/sentiment")
 def get_sentiment():
     try:
