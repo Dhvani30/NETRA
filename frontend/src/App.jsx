@@ -136,7 +136,7 @@ function App() {
   };
 
   return (
-    <div className="netra-app min-h-screen p-6">
+    <div className={tourOpen ? "netra-app min-h-screen p-6 tour-is-open" : "netra-app min-h-screen p-6"}>
       {/* Header */}
       <header className="netra-header mb-8 flex justify-between items-center">
         <h1 className="netra-title">NETRA <span>INTELLIGENCE</span></h1>
