@@ -16,13 +16,18 @@ import './components/AnalyticsView.css';
 const SENTIMENT_COLORS = { Positive: 'var(--ds-color-green-muted)', Negative: 'var(--ds-color-red-muted)', Neutral: 'var(--ds-color-amber-muted)', ABSTAIN: 'var(--ds-color-text-3)' };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedView = new URLSearchParams(window.location.search).get('view');
+    return ['analytics', 'mutation', 'correlation', 'alerts', 'demographics', 'network_intel', 'graph'].includes(requestedView) ? requestedView : 'analytics';
+  });
   const [sentimentData, setSentimentData] = useState([]);
   const [narrativeData, setNarrativeData] = useState([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [investigationData, setInvestigationData] = useState(null);
   
@@ -50,26 +55,56 @@ function App() {
     }
   };
 
-  const handleSearch = async (e) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      setLoading(true);
-      try {
-        const searchRes = await axios.get(`${API_URL}/search?q=${encodeURIComponent(searchQuery)}`);
-        setInvestigationData(searchRes.data);
-      } catch (error) { 
-        console.error('Error searching:', error); 
-      } finally { 
-        setLoading(false); 
-      }
+  const runSearch = async (query) => {
+    setSearching(true);
+    setSearchError('');
+    try {
+      const searchRes = await axios.get(`${API_URL}/search?q=${encodeURIComponent(query)}`);
+      setInvestigationData(searchRes.data);
+    } catch (error) {
+      console.error('Error searching:', error);
+      setSearchError('Search could not be completed. Check the API connection and try again.');
+    } finally {
+      setSearching(false);
     }
   };
 
-  const handleBackToDashboard = () => { 
-    setInvestigationData(null); 
-    setSearchQuery(''); 
+  const handleSearch = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
+      runSearch(searchQuery.trim());
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  const handleBackToDashboard = () => {
+    setInvestigationData(null);
+    setSearchQuery('');
+    setSearchError('');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('q');
+    window.history.replaceState({}, '', url);
+  };
+
+  useEffect(() => {
+    if (window.location.hash === '#dashboard-search') {
+      window.requestAnimationFrame(() => {
+        const searchInput = document.querySelector('#dashboard-search input');
+        searchInput?.focus({ preventScroll: true });
+        document.getElementById('dashboard-search')?.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'center',
+        });
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const initialQuery = new URLSearchParams(window.location.search).get('q')?.trim();
+    if (initialQuery) {
+      runSearch(initialQuery);
+    }
+  }, []);
 
   const getPlatformIcon = (platform) => {
     const p = platform?.toLowerCase() || '';
@@ -128,7 +163,7 @@ function App() {
 
       {/* Search Bar */}
       {!investigationData && (
-        <div className="netra-search-wrap mb-6">
+        <div className="netra-search-wrap mb-6" id="dashboard-search">
           <div className="relative">
             <Search className="netra-search-icon absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" />
             <Input
@@ -136,16 +171,22 @@ function App() {
               placeholder="Investigate topic, entity, or narrative... (press Enter)"
               aria-label="Search investigations"
               value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchError(''); }}
               onKeyDown={handleSearch} 
               className="ds-input--search w-full"
             />
           </div>
+          {searchError && <p className="text-sm text-rose-300" role="alert">{searchError}</p>}
         </div>
       )}
 
       {/* Main Content Area */}
-      {investigationData ? (
+      {searching ? (
+        <Card className="analytics-view__loading" role="status">
+          <RefreshCw className="analytics-view__loading-icon animate-spin" />
+          <p>Searching collected intelligence...</p>
+        </Card>
+      ) : investigationData ? (
         <InvestigationView investigationData={investigationData} graphData={graphData} onBack={handleBackToDashboard} searchQuery={searchQuery} />
       ) : (
         <>
