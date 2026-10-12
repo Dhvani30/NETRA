@@ -4,6 +4,7 @@ import './index.css'
 import './components/ui/primitives.css'
 import App from './App.jsx'
 import LandingPage from './LandingPage.jsx'
+import './theme.css'
 
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const routeContent = path === '/'

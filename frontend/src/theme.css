@@ -1,0 +1,215 @@
+:root {
+  --ds-color-glass: rgba(190, 174, 255, .055);
+  --ds-color-glass-hover: rgba(190, 174, 255, .10);
+  --ds-color-glass-border: rgba(190, 174, 255, .17);
+  --ds-color-glass-bright: rgba(190, 174, 255, .34);
+  --ds-color-accent: #9b72ff;
+  --ds-color-accent-dim: #7551d2;
+  --ds-color-accent-bright: #c4adff;
+  --ds-color-accent-faint: rgba(155, 114, 255, .15);
+  --ds-color-blue-muted: #72baff;
+  --ds-color-chart-muted-1: #9274ec;
+  --ds-color-chart-muted-2: #c4adff;
+  --ds-color-chart-muted-3: #66b9e8;
+  --ds-color-chart-muted-4: #e4a5dd;
+  --ds-shadow-glass: inset 0 1px 0 rgba(255,255,255,.10), inset 1px 0 0 rgba(196,173,255,.06), 0 18px 42px rgba(0,0,0,.36), 0 0 24px rgba(116,78,214,.055);
+  --ds-shadow-glass-hover: inset 0 1px 0 rgba(255,255,255,.14), inset 1px 0 0 rgba(196,173,255,.08), 0 22px 48px rgba(0,0,0,.42), 0 0 28px rgba(137,94,255,.12);
+  --ds-shadow-metal-button: 0 0 30px rgba(155,114,255,.28), inset 0 1px 0 rgba(255,255,255,.4);
+}
+
+body {
+  background:
+    radial-gradient(ellipse 760px 500px at 78% 0%, rgba(103, 69, 190, .13), transparent 68%),
+    radial-gradient(ellipse 700px 500px at 18% 100%, rgba(45, 109, 170, .06), transparent 70%),
+    var(--netra-bg);
+}
+
+.netra-app {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 58% 46% at 82% 3%, rgba(115, 77, 207, .14), transparent 70%),
+    radial-gradient(ellipse 46% 42% at 35% 100%, rgba(51, 118, 180, .055), transparent 74%),
+    var(--ds-color-bg);
+}
+
+.netra-header {
+  position: relative;
+  z-index: 5;
+  padding-inline: var(--ds-space-8);
+  border-right-color: rgba(190, 174, 255, .14);
+  background: linear-gradient(180deg, rgba(17, 16, 38, .94), rgba(9, 10, 27, .92));
+  box-shadow: 12px 0 36px rgba(0, 0, 0, .16);
+}
+
+.netra-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-10);
+  padding: var(--ds-space-20) var(--ds-space-8) var(--ds-space-16);
+  font-size: var(--ds-type-15);
+  font-weight: var(--ds-weight-semibold);
+  letter-spacing: .045em;
+}
+
+.netra-title::before {
+  content: 'N';
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 9px;
+  color: #171427;
+  background: linear-gradient(145deg, #fff, #a99bdb 78%);
+  box-shadow: 0 0 18px rgba(155,114,255,.25), inset 0 1px 0 rgba(255,255,255,.8);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.netra-title span { color: #b7a2ff; }
+.netra-toolbar { gap: var(--ds-space-6); padding-top: var(--ds-space-8); }
+.netra-toolbar > .ds-button--nav {
+  position: relative;
+  min-height: 38px;
+  padding-left: var(--ds-space-12);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-sm);
+  letter-spacing: .005em;
+  transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.netra-toolbar > .ds-button--nav::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .4;
+  box-shadow: 0 0 0 transparent;
+  transition: opacity .18s ease, box-shadow .18s ease;
+}
+.netra-toolbar > .ds-button--nav:hover:not(:disabled) {
+  transform: translateX(2px);
+  color: #e6ddff;
+  border-color: rgba(190,174,255,.09);
+  background: linear-gradient(90deg, rgba(155,114,255,.12), rgba(155,114,255,.025));
+}
+.netra-toolbar > .ds-button--nav.is-active {
+  color: #f3efff;
+  border-color: rgba(174,145,255,.25);
+  background: linear-gradient(105deg, rgba(128,83,231,.42), rgba(91,63,169,.22) 72%, rgba(155,114,255,.12));
+  box-shadow: inset 3px 0 0 #ad8cff, 0 4px 18px rgba(100,65,190,.17);
+}
+.netra-toolbar > .ds-button--nav.is-active::before {
+  opacity: 1;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.netra-search-wrap {
+  position: relative;
+  z-index: 4;
+  min-height: 64px;
+  padding-inline: var(--ds-space-24);
+  border-bottom-color: rgba(190,174,255,.14);
+  background: linear-gradient(90deg, rgba(15,15,35,.88), rgba(12,13,31,.72));
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  backdrop-filter: blur(20px);
+}
+.netra-search-wrap > .relative { width: min(100%, 560px); }
+.netra-search-icon { color: #aa91ef; }
+.netra-search-wrap .ds-input--search {
+  min-height: 42px;
+  border-color: rgba(190,174,255,.18);
+  border-radius: var(--ds-radius-pill);
+  background: linear-gradient(110deg, rgba(255,255,255,.065), rgba(155,114,255,.045));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+}
+.netra-search-wrap .ds-input--search:focus {
+  border-color: rgba(177,146,255,.55);
+  box-shadow: 0 0 0 3px rgba(155,114,255,.11), 0 0 26px rgba(122,82,222,.10);
+}
+
+.netra-app > :not(.netra-header):not(.netra-search-wrap) { padding: var(--ds-space-24); }
+.ds-card {
+  border-color: rgba(190,174,255,.17);
+  background: linear-gradient(145deg, rgba(255,255,255,.064), rgba(140,119,210,.035) 60%, rgba(255,255,255,.025));
+  box-shadow: var(--ds-shadow-glass);
+}
+.ds-card:hover { border-color: rgba(190,174,255,.32); }
+.ds-button--secondary {
+  border-color: rgba(190,174,255,.2);
+  background: linear-gradient(140deg, rgba(255,255,255,.065), rgba(137,108,210,.07));
+}
+.ds-button--secondary:hover:not(:disabled), .ds-button--ghost:hover:not(:disabled) {
+  border-color: rgba(190,174,255,.38);
+  box-shadow: 0 0 20px rgba(115,77,207,.12);
+}
+.ds-button--primary { background: linear-gradient(125deg, #bba4ff, #8b61ef 58%, #6642c8); }
+.ds-button--primary:hover:not(:disabled) { box-shadow: 0 0 26px rgba(155,114,255,.34); }
+.ds-input { border-color: rgba(190,174,255,.18); background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(123,92,190,.035)); }
+.ds-input:focus { box-shadow: 0 0 0 3px rgba(155,114,255,.12); }
+.ds-badge--accent { color: #d1c2ff; border-color: rgba(155,114,255,.3); background: rgba(125,84,220,.16); }
+
+.analytics-view__header,
+.network-intel__header,
+.network-graph__header,
+.narrative-tracker__header,
+.cross-platform-view__header,
+.alerts-view__header,
+.demographics-view__header {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(190,174,255,.2);
+  background: linear-gradient(115deg, rgba(155,114,255,.10), rgba(255,255,255,.035) 44%, rgba(86,130,196,.045));
+  box-shadow: var(--ds-shadow-glass);
+}
+.network-intel__header::after,
+.network-graph__header::after,
+.narrative-tracker__header::after,
+.cross-platform-view__header::after,
+.alerts-view__header::after,
+.demographics-view__header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  width: min(38%, 300px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(196,173,255,.75), transparent);
+  pointer-events: none;
+}
+
+.analytics-view__header { padding:var(--ds-space-16) var(--ds-space-20); border-radius:var(--ds-radius-card); }
+
+.analytics-view__card-header h2,
+.network-intel__panel-title h2,
+.narrative-tracker__panel-title h2,
+.cross-platform-view__panel-title h2,
+.demographics-view__panel-title h2,
+.alerts-view__panel-title h2 { letter-spacing: -.015em; }
+.analytics-view__card,
+.network-intel__panel,
+.narrative-tracker__panel,
+.cross-platform-view__panel,
+.demographics-view__panel,
+.alerts-view__panel { border-color: rgba(190,174,255,.18); }
+.network-graph__canvas { background: radial-gradient(ellipse at 50% 45%, rgba(99,73,170,.15), transparent 68%), #0a0b1d; }
+
+.site-header { border-bottom-color: rgba(190,174,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.glass-panel { border-color: rgba(190,174,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 22px 60px rgba(0,0,0,.24), 0 0 24px rgba(115,77,207,.07); }
+.metal-button { box-shadow: 0 0 24px rgba(155,114,255,.22), inset 0 1px 0 rgba(255,255,255,.7); }
+
+@media (max-width:900px) {
+  .netra-search-wrap { min-height: 56px; padding-inline: var(--ds-space-16); }
+  .netra-app > :not(.netra-header):not(.netra-search-wrap) { padding: var(--ds-space-20); }
+}
+@media (max-width:600px) {
+  .netra-title::before { width: 25px; height: 25px; border-radius: 7px; font-size: 13px; }
+  .netra-search-wrap { padding-inline: var(--ds-space-12); }
+  .netra-app > :not(.netra-header):not(.netra-search-wrap) { padding: var(--ds-space-16) var(--ds-space-12); }
+  .netra-toolbar > .ds-button--nav { min-height: 34px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .netra-toolbar > .ds-button--nav { transition:none; }
+}
