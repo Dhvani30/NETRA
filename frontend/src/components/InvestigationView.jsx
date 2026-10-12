@@ -1,23 +1,35 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Globe, MessageSquare, Share2, TrendingUp, Activity, Video } from 'lucide-react'; // Added Video here
+import { ArrowLeft, Building2, Globe, MessageSquare, Share2, TrendingUp, Activity, Video, ExternalLink } from 'lucide-react';
+import { Button, Card } from './ui/primitives';
 import NetworkGraph from './NetworkGraph';
+import './InvestigationView.css';
+
+function safeExternalUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function InvestigationView({ investigationData, graphData, onBack, searchQuery }) {
   const [filteredGraph, setFilteredGraph] = useState({ nodes: [], links: [] });
+  const posts = investigationData.posts || [];
+  const entities = investigationData.summary?.entities || [];
+  const platforms = investigationData.summary?.platforms || [];
 
-  // 🧠 Smart Subgraph Filtering: Only show nodes connected to the search query
   useEffect(() => {
-    if (!graphData || !graphData.nodes || !searchQuery) {
+    if (!graphData?.nodes || !searchQuery) {
       setFilteredGraph({ nodes: [], links: [] });
       return;
     }
 
-    const q = searchQuery.toLowerCase();
-    
-    // Find nodes matching the search query
-    const matchedNodes = graphData.nodes.filter(n => 
-      (n.label || '').toLowerCase().includes(q) || 
-      (n.id || '').toLowerCase().includes(q)
+    const query = searchQuery.toLowerCase();
+    const matchedNodes = graphData.nodes.filter((node) =>
+      (node.label || '').toLowerCase().includes(query) ||
+      (node.id || '').toLowerCase().includes(query)
     );
 
     if (matchedNodes.length === 0) {
@@ -25,49 +37,39 @@ export default function InvestigationView({ investigationData, graphData, onBack
       return;
     }
 
-    const matchedIds = new Set(matchedNodes.map(n => n.id));
-
-    // Get all links connected to matched nodes (1-hop)
-    const relevantLinks = graphData.links.filter(l => {
-      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+    const matchedIds = new Set(matchedNodes.map((node) => node.id));
+    const relevantLinks = graphData.links.filter((link) => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
       return matchedIds.has(sourceId) || matchedIds.has(targetId);
     });
-
-    // Collect all node IDs in these links
-    const connectedIds = new Set();
-    relevantLinks.forEach(l => {
-      connectedIds.add(typeof l.source === 'object' ? l.source.id : l.source);
-      connectedIds.add(typeof l.target === 'object' ? l.target.id : l.target);
+    const connectedIds = new Set(matchedIds);
+    relevantLinks.forEach((link) => {
+      connectedIds.add(typeof link.source === 'object' ? link.source.id : link.source);
+      connectedIds.add(typeof link.target === 'object' ? link.target.id : link.target);
     });
-
-    // Also include the primary matched nodes
-    matchedNodes.forEach(n => connectedIds.add(n.id));
-
-    // Filter to only these nodes
-    const filteredNodes = graphData.nodes.filter(n => connectedIds.has(n.id));
-
-    setFilteredGraph({ nodes: filteredNodes, links: relevantLinks });
+    setFilteredGraph({
+      nodes: graphData.nodes.filter((node) => connectedIds.has(node.id)),
+      links: relevantLinks,
+    });
   }, [graphData, searchQuery]);
 
-  // ✅ UPDATED: Added YouTube icon detection
   const getPlatformIcon = (platform) => {
-    const platformLower = platform?.toLowerCase() || '';
-    if (platformLower.includes('twitter') || platformLower.includes('x')) return <Share2 className="w-4 h-4" />;
-    if (platformLower.includes('reddit')) return <MessageSquare className="w-4 h-4" />;
-    if (platformLower.includes('youtube')) return <Video className="w-4 h-4 text-red-500" />; // YouTube icon
-    return <Globe className="w-4 h-4" />;
+    const value = platform?.toLowerCase() || '';
+    if (value.includes('twitter') || value.includes('x')) return <Share2 size={15} aria-hidden="true" />;
+    if (value.includes('reddit')) return <MessageSquare size={15} aria-hidden="true" />;
+    if (value.includes('youtube')) return <Video size={15} aria-hidden="true" />;
+    return <Globe size={15} aria-hidden="true" />;
   };
 
   const getRelativeTime = (timestamp) => {
     if (!timestamp) return 'Unknown time';
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+    const diffMs = Date.now() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -75,139 +77,106 @@ export default function InvestigationView({ investigationData, graphData, onBack
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center p-4 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 flex items-center gap-2 transition-colors text-sm font-medium"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </button>
-          <h1 className="text-2xl font-bold tracking-wider" style={{ color: '#00f0ff' }}>
-            INVESTIGATION: {searchQuery.toUpperCase()}
-          </h1>
+    <div className="investigation-view">
+      <header className="investigation-view__header">
+        <div className="investigation-view__header-copy">
+          <p className="investigation-view__eyebrow">Collected intelligence</p>
+          <h1>Investigation <span>{searchQuery}</span></h1>
         </div>
-      </div>
+        <Button variant="secondary" onClick={onBack}>
+          <ArrowLeft size={16} aria-hidden="true" /> Back to dashboard
+        </Button>
+      </header>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="p-4 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-5 h-5" style={{ color: '#00f0ff' }} />
-            <span className="text-sm text-gray-400 font-medium">Observations</span>
-          </div>
-          <div className="text-3xl font-bold text-white">{investigationData.summary?.observations || 0}</div>
-        </div>
-        
-        <div className="p-4 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl">🏢</span>
-            <span className="text-sm text-gray-400 font-medium">Unique Entities</span>
-          </div>
-          <div className="text-3xl font-bold text-white">{investigationData.summary?.entities?.length || 0}</div>
-        </div>
-        
-        <div className="p-4 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Globe className="w-5 h-5" style={{ color: '#3b82f6' }} />
-            <span className="text-sm text-gray-400 font-medium">Platforms</span>
-          </div>
-          <div className="text-3xl font-bold text-white">{investigationData.summary?.platforms?.length || 0}</div>
-        </div>
-        
-        <div className="p-4 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5" style={{ color: '#10b981' }} />
-            <span className="text-sm text-gray-400 font-medium">Activity Trend</span>
-          </div>
-          <div className="text-3xl font-bold" style={{ color: '#10b981' }}>
-            {investigationData.summary?.activity_trend || '0%'}
-          </div>
-        </div>
-      </div>
+      <section className="investigation-view__stats" aria-label="Investigation summary">
+        <Card className="investigation-view__stat">
+          <div className="investigation-view__stat-label"><Activity aria-hidden="true" /> Observations</div>
+          <strong>{investigationData.summary?.observations || 0}</strong>
+        </Card>
+        <Card className="investigation-view__stat">
+          <div className="investigation-view__stat-label"><Building2 aria-hidden="true" /> Unique entities</div>
+          <strong>{entities.length}</strong>
+        </Card>
+        <Card className="investigation-view__stat">
+          <div className="investigation-view__stat-label"><Globe aria-hidden="true" /> Platforms</div>
+          <strong>{platforms.length}</strong>
+        </Card>
+        <Card className="investigation-view__stat investigation-view__stat--trend">
+          <div className="investigation-view__stat-label"><TrendingUp aria-hidden="true" /> Activity trend</div>
+          <strong>{investigationData.summary?.activity_trend || '0%'}</strong>
+        </Card>
+      </section>
 
-      {/* Provenance Panel and Evidence Feed */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Provenance Panel */}
-        <div className="p-6 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: '#00f0ff' }}>
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            WHY THIS NARRATIVE?
-          </h2>
-          <div className="p-4 rounded mb-4" style={{ backgroundColor: '#0a0a0f', borderLeft: '4px solid #00f0ff' }}>
-            <p className="text-gray-300 text-sm leading-relaxed">{investigationData.provenance}</p>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Key Entities</h3>
-              <div className="flex flex-wrap gap-2">
-                {investigationData.summary?.entities?.slice(0, 8).map((entity, index) => (
-                  <span key={index} className="px-3 py-1 rounded-full text-xs font-medium border" style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', borderColor: 'rgba(168, 85, 247, 0.3)' }}>
-                    {entity}
+      <div className="investigation-view__content-grid">
+        <Card className="investigation-view__panel">
+          <header className="investigation-view__panel-heading">
+            <span className="investigation-view__panel-icon"><Activity size={17} aria-hidden="true" /></span>
+            <h2>Why this narrative?</h2>
+          </header>
+          <p className="investigation-view__provenance">{investigationData.provenance || 'No provenance details are available for this search.'}</p>
+
+          <section className="investigation-view__detail-group">
+            <h3>Key entities</h3>
+            {entities.length ? (
+              <div className="investigation-view__chips">
+                {entities.slice(0, 12).map((entity) => <span className="investigation-view__chip" key={entity}>{entity}</span>)}
+              </div>
+            ) : <p className="investigation-view__muted">No entities identified.</p>}
+          </section>
+
+          <section className="investigation-view__detail-group">
+            <h3>Platforms involved</h3>
+            {platforms.length ? (
+              <div className="investigation-view__chips">
+                {platforms.map((platform) => (
+                  <span className="investigation-view__platform-chip" key={platform}>
+                    {getPlatformIcon(platform)} {platform}
                   </span>
                 ))}
               </div>
-            </div>
-            
-            <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Platforms Involved</h3>
-              <div className="flex flex-wrap gap-2">
-                {investigationData.summary?.platforms?.map((platform, index) => (
-                  <span key={index} className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-gray-800 text-gray-300 border border-gray-700">
-                    {getPlatformIcon(platform)}
-                    {platform.toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+            ) : <p className="investigation-view__muted">No platform data available.</p>}
+          </section>
+        </Card>
 
-        {/* Evidence Feed */}
-        <div className="p-6 rounded-lg border border-gray-800" style={{ backgroundColor: '#13131f' }}>
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: '#00f0ff' }}>
-            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-            EVIDENCE FEED
-          </h2>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {investigationData.posts?.length === 0 ? (
-              <p className="text-gray-400 text-center py-8 text-sm">No direct evidence found for this query.</p>
-            ) : (
-              investigationData.posts?.map((post, index) => (
-                <div key={index} className="p-3 rounded border-l-4 hover:bg-gray-800/50 transition-colors" style={{ backgroundColor: '#0a0a0f', borderColor: '#00f0ff' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      {getPlatformIcon(post.platform)}
-                      <span className="font-bold text-gray-300">{post.platform?.toUpperCase() || 'UNKNOWN'}</span>
-                      <span>•</span>
-                      <span>{getRelativeTime(post.published_at)}</span>
+        <Card className="investigation-view__panel investigation-view__evidence-panel">
+          <header className="investigation-view__panel-heading">
+            <span className="investigation-view__panel-icon"><Globe size={17} aria-hidden="true" /></span>
+            <h2>Evidence feed</h2>
+            <span className="investigation-view__count">{posts.length} posts</span>
+          </header>
+          {posts.length === 0 ? (
+            <div className="investigation-view__empty">No direct evidence found for this query.</div>
+          ) : (
+            <div className="investigation-view__evidence-list">
+              {posts.map((post, index) => {
+                const postUrl = safeExternalUrl(post.url || post.permalink);
+                const sentiment = post.sentiment_label?.toUpperCase();
+                return (
+                  <article className="investigation-view__evidence" key={post.canonical_id || `${post.platform}-${index}`}>
+                    <div className="investigation-view__evidence-heading">
+                      <div className="investigation-view__evidence-meta">
+                        <span className="investigation-view__platform-icon">{getPlatformIcon(post.platform)}</span>
+                        <strong>{post.platform || 'Unknown source'}</strong>
+                        <span className="investigation-view__meta-separator">·</span>
+                        <time dateTime={post.published_at || undefined}>{getRelativeTime(post.published_at)}</time>
+                      </div>
+                      <div className="investigation-view__evidence-actions">
+                        {sentiment && <span className={`investigation-view__sentiment investigation-view__sentiment--${sentiment.toLowerCase()}`}>{sentiment}</span>}
+                        {postUrl && <a href={postUrl} target="_blank" rel="noopener noreferrer" aria-label="Open source post"><ExternalLink size={15} /></a>}
+                      </div>
                     </div>
-                    {post.sentiment_label && (
-                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                        post.sentiment_label === 'NEGATIVE' ? 'bg-red-900/50 text-red-400 border border-red-800' : 
-                        post.sentiment_label === 'POSITIVE' ? 'bg-green-900/50 text-green-400 border border-green-800' : 
-                        'bg-gray-700 text-gray-300 border border-gray-600'
-                      }`}>
-                        {post.sentiment_label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-200 text-sm leading-relaxed">
-                    {(post.text_content || post.content || 'No content').substring(0, 200)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                    <p className="investigation-view__evidence-text">{post.text_content || post.text || post.content || 'No content'}</p>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </Card>
       </div>
 
-      {/* Interactive Graph (Using the unified NetworkGraph component) */}
-      <NetworkGraph graphData={filteredGraph} highlightQuery={searchQuery} />
+      <section className="investigation-view__graph-section" aria-label="Investigation network graph">
+        <NetworkGraph graphData={filteredGraph} highlightQuery={searchQuery} />
+      </section>
     </div>
   );
 }
