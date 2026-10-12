@@ -133,25 +133,22 @@ def get_sentiment():
         from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
         analyzer = SentimentIntensityAnalyzer()
-        missing_label = {"$or": [
-            {"sentiment_label": {"$exists": False}},
+        missing_score = {"$or": [
+            {"sentiment_score": {"$not": {"$type": "number"}}},
             {"sentiment_label": {"$in": ["UNSCORED", "ABSTAIN", "unscored", "abstain"]}},
-            {"sentiment_label": None},
-            {"sentiment_label": ""},
-        ]}
-        missing_ai_label = {"$or": [
-            {"ai_analysis.sentiment_label": {"$exists": False}},
-            {"ai_analysis.sentiment_label": {"$in": ["UNSCORED", "ABSTAIN", "unscored", "abstain"]}},
-            {"ai_analysis.sentiment_label": None},
-            {"ai_analysis.sentiment_label": ""},
         ]}
         updates = []
         for post in raw_posts.find(
-            {"$and": [missing_label, missing_ai_label]},
-            {"text_content": 1, "content": 1},
+            missing_score,
+            {"text_content": 1, "content": 1, "ai_analysis.sentiment_score": 1},
         ).batch_size(500):
             text = str(post.get("text_content") or post.get("content") or "")
-            score = analyzer.polarity_scores(text)["compound"]
+            analysis = post.get("ai_analysis")
+            if not isinstance(analysis, dict):
+                analysis = {}
+            score = analysis.get("sentiment_score")
+            if not isinstance(score, (int, float)) or isinstance(score, bool):
+                score = analyzer.polarity_scores(text)["compound"]
             label = "POSITIVE" if score >= 0.05 else "NEGATIVE" if score <= -0.05 else "NEUTRAL"
             updates.append(UpdateOne(
                 {"_id": post["_id"]},
