@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import PyMongoError
 
@@ -130,30 +130,106 @@ def get_live_summary():
 @app.get("/api/v1/analytics/sentiment")
 def get_sentiment():
     try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+        analyzer = SentimentIntensityAnalyzer()
+        missing_label = {"$or": [
+            {"sentiment_label": {"$exists": False}},
+            {"sentiment_label": {"$in": ["UNSCORED", "ABSTAIN", "unscored", "abstain"]}},
+            {"sentiment_label": None},
+            {"sentiment_label": ""},
+        ]}
+        missing_ai_label = {"$or": [
+            {"ai_analysis.sentiment_label": {"$exists": False}},
+            {"ai_analysis.sentiment_label": {"$in": ["UNSCORED", "ABSTAIN", "unscored", "abstain"]}},
+            {"ai_analysis.sentiment_label": None},
+            {"ai_analysis.sentiment_label": ""},
+        ]}
+        updates = []
+        for post in raw_posts.find(
+            {"$and": [missing_label, missing_ai_label]},
+            {"text_content": 1, "content": 1},
+        ).batch_size(500):
+            text = str(post.get("text_content") or post.get("content") or "")
+            score = analyzer.polarity_scores(text)["compound"]
+            label = "POSITIVE" if score >= 0.05 else "NEGATIVE" if score <= -0.05 else "NEUTRAL"
+            updates.append(UpdateOne(
+                {"_id": post["_id"]},
+                {"$set": {
+                    "sentiment_label": label,
+                    "sentiment_score": score,
+                    "sentiment_confidence": abs(score),
+                }},
+            ))
+            if len(updates) >= 500:
+                raw_posts.bulk_write(updates, ordered=False)
+                updates = []
+        if updates:
+            raw_posts.bulk_write(updates, ordered=False)
+
+        label = {"$let": {
+            "vars": {"root": {"$trim": {"input": {"$toString": {"$ifNull": ["$sentiment_label", ""]}}}}},
+            "in": {"$cond": [{"$eq": ["$$root", ""]}, {"$ifNull": ["$ai_analysis.sentiment_label", "NEUTRAL"]}, "$$root"]},
+        }}
         pipeline = [
             {"$group": {
-                "_id": {"$toUpper": {"$ifNull": ["$sentiment_label", {"$ifNull": ["$ai_analysis.sentiment_label", "NEUTRAL"]}]}},
+                "_id": {"$toUpper": {"$trim": {"input": {"$toString": {"$ifNull": [label, "NEUTRAL"]}}}}},
                 "count": {"$sum": 1},
             }},
             {"$sort": {"count": -1}},
         ]
         results = list(raw_posts.aggregate(pipeline))
         return {"sentiment_breakdown": [{"label": r["_id"] or "NEUTRAL", "count": r["count"]} for r in results]}
-    except PyMongoError as e: 
+    except PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail="Sentiment analysis dependency is unavailable") from e
+
+def _friendly_narrative_name(name, topic, text):
+    name = str(name or "").strip()
+    if name and not re.fullmatch(r"narrative[_ -]?\w+", name, flags=re.IGNORECASE):
+        return name
+
+    source = f"{topic or ''} {text or ''}".lower()
+    themes = [
+        (["ransomware", "malware", "cyber", "breach", "hack", "phishing", "vulnerability"], "Cybersecurity"),
+        (["artificial intelligence", " ai ", "machine learning", "deepfake", "chatgpt", "technology"], "AI & Technology"),
+        (["election", "government", "parliament", "minister", "policy", "political"], "Politics & Governance"),
+        (["china", "border", "war", "conflict", "nato", "military", "defence", "defense"], "Geopolitics & Security"),
+        (["market", "economy", "bank", "business", "finance", "stock"], "Business & Economy"),
+        (["health", "hospital", "medical", "disease", " vaccine"], "Health & Medicine"),
+        (["climate", "flood", "weather", "environment", "pollution"], "Climate & Environment"),
+        (["instagram", "youtube", "telegram", "social media", "viral"], "Social Media & Culture"),
+    ]
+    for keywords, label in themes:
+        if any(keyword in source for keyword in keywords):
+            return label
+    return "General News"
+
 
 @app.get("/api/v1/analytics/narratives")
 def get_narratives():
     try:
         pipeline = [
-            {"$group": {"_id": {"$ifNull": ["$narrative_name", {"$concat": ["Narrative_", {"$toString": {"$ifNull": ["$narrative_cluster", 0]} }]}]}, "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}}, {"$limit": 10}
+            {"$group": {
+                "_id": {"name": {"$ifNull": ["$narrative_name", ""]}, "cluster": {"$ifNull": ["$narrative_cluster", None]}},
+                "count": {"$sum": 1},
+                "topic": {"$first": "$topic"},
+                "text": {"$first": {"$ifNull": ["$text_content", "$content"]}},
+            }},
+            {"$sort": {"count": -1}}, {"$limit": 50},
         ]
         results = list(raw_posts.aggregate(pipeline))
-        return {"clusters": [{"name": r["_id"] if r["_id"] else "Uncategorized", "count": r["count"]} for r in results]}
-    except PyMongoError as e: 
+        counts = {}
+        for row in results:
+            identity = row.get("_id") or {}
+            name = _friendly_narrative_name(identity.get("name"), row.get("topic"), row.get("text"))
+            counts[name] = counts.get(name, 0) + row["count"]
+        clusters = [{"name": name, "count": count} for name, count in counts.items()]
+        clusters.sort(key=lambda item: item["count"], reverse=True)
+        return {"clusters": clusters[:10]}
+    except PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
-
 @app.get("/api/v1/graph/data")
 def get_graph():
     try: 

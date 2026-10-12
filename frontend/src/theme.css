@@ -46,9 +46,10 @@ body {
   align-items: center;
   gap: var(--ds-space-10);
   padding: var(--ds-space-20) var(--ds-space-8) var(--ds-space-16);
-  font-size: var(--ds-type-15);
+  min-width: 0;
+  font-size: var(--ds-type-13);
   font-weight: var(--ds-weight-semibold);
-  letter-spacing: .045em;
+  letter-spacing: .02em;
 }
 
 .netra-title::before {
@@ -68,7 +69,7 @@ body {
   letter-spacing: 0;
 }
 
-.netra-title span { color: #b7a2ff; }
+.netra-title span { min-width: 0; color: #b7a2ff; font-size: .82em; letter-spacing: .01em; }
 .netra-toolbar { gap: var(--ds-space-6); padding-top: var(--ds-space-8); }
 .netra-toolbar > .ds-button--nav {
   position: relative;
