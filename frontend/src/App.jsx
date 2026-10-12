@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw, Compass } from 'lucide-react';
 import InvestigationView from './components/InvestigationView';
 import NetworkGraph from './components/NetworkGraph';
 import NarrativeTracker from './components/NarrativeTracker';
@@ -13,6 +13,7 @@ import PlatformFeedView from './components/PlatformFeedView';
 import { Badge, Button, Card, Input } from './components/ui/primitives';
 import { API_URL } from './config';
 import './components/AnalyticsView.css';
+import ProductTour from './components/ProductTour';
 
 const SENTIMENT_COLORS = { POSITIVE: 'var(--ds-color-green-muted)', NEGATIVE: 'var(--ds-color-red-muted)', NEUTRAL: 'var(--ds-color-amber-muted)', ABSTAIN: 'var(--ds-color-text-3)' };
 
@@ -48,6 +49,7 @@ function App() {
   const [searchError, setSearchError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [investigationData, setInvestigationData] = useState(null);
+  const [tourOpen, setTourOpen] = useState(false);
   
   // 🔄 MAGIC REFRESH KEY
   const [refreshKey, setRefreshKey] = useState(0);
@@ -140,6 +142,9 @@ function App() {
         <h1 className="netra-title">NETRA <span>INTELLIGENCE</span></h1>
         {!investigationData && (
           <div className="netra-toolbar flex gap-2 items-center flex-wrap">
+            <Button variant="secondary" className="tour-launch" onClick={() => setTourOpen(true)}>
+              <Compass className="w-4 h-4" /> Take a tour
+            </Button>
             <Button variant="nav" active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')}>
               Analytics
             </Button>
@@ -328,6 +333,7 @@ function App() {
           )}
         </>
       )}
+      {tourOpen && <ProductTour activeTab={activeTab} onNavigate={setActiveTab} onClose={() => setTourOpen(false)} />}
     </div>
   );
 }
