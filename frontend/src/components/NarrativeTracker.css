@@ -52,3 +52,5 @@
   .narrative-tracker__header,.narrative-tracker__panel { padding:var(--ds-space-16); }
   .narrative-tracker__stats { grid-template-columns:minmax(0,1fr); }
 }
+.narrative-tracker__selector-hint { color: var(--ds-color-text-3); font-size: var(--ds-type-10); }
+.narrative-tracker__timeline-note { margin: 3px 0 0; color: var(--ds-color-text-3); font-size: var(--ds-type-10); }

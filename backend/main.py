@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import json
 import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from bson import json_util
@@ -291,78 +292,82 @@ def search_messages(q: str = Query(..., min_length=1)):
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 @app.get("/api/v1/analytics/mutation")
-def get_narrative_mutation(narrative: str = Query(..., description="Narrative name to track")):
+def get_narrative_mutation(narrative: str = Query(..., min_length=1, description="Topic phrase to track")):
     try:
-        query = {"narrative_name": {"$regex": narrative, "$options": "i"}}
-        cursor = raw_posts.find(query, {"_id": 0}).sort("published_at", 1)
-        posts = _mongo_documents_to_json(list(cursor))
-        
+        phrase = narrative.strip()
+        pattern = re.escape(phrase)
+        query = {"$or": [
+            {"narrative_name": {"$regex": pattern, "$options": "i"}},
+            {"text_content": {"$regex": pattern, "$options": "i"}},
+            {"content": {"$regex": pattern, "$options": "i"}},
+        ]}
+        posts = list(raw_posts.find(
+            query,
+            {"_id": 0, "text_content": 1, "content": 1, "published_at": 1, "created_at": 1, "timestamp": 1, "sentiment_label": 1, "ai_analysis": 1},
+        ).sort("published_at", 1).limit(5000))
         if not posts:
-            return {"error": "No data found for this narrative"}
+            return {"narrative": phrase, "total_observations": 0, "timeline": [], "mutations": []}
 
-        total = len(posts)
-        phases = [
-            {"name": "Phase 1: Initial Detection", "slice": posts[:max(1, total//4)]},
-            {"name": "Phase 2: Developing", "slice": posts[max(1, total//4):max(1, total//2)]},
-            {"name": "Phase 3: Acceleration", "slice": posts[max(1, total//2):max(1, (total*3)//4)]},
-            {"name": "Phase 4: Current State", "slice": posts[max(1, (total*3)//4):]}
-        ]
+        weekly = {}
+        for post in posts:
+            published_at = next((
+                _narrative_timestamp(post.get(field))
+                for field in ("published_at", "created_at", "timestamp")
+                if post.get(field) is not None
+            ), None)
+            if published_at is None:
+                continue
+            week_start = published_at.date() - timedelta(days=published_at.weekday())
+            week_key = week_start.isoformat()
+            period = weekly.setdefault(week_key, {"start": week_start, "posts": [], "terms": {}})
+            period["posts"].append(post)
+            text = post.get("text_content") or post.get("content") or ""
+            for term in _post_topic_terms(text):
+                period["terms"][term] = period["terms"].get(term, 0) + 1
 
-        timeline_data = []
+        timeline = []
         mutations = []
-        all_entities_seen = set()
-        
-        for phase in phases:
-            phase_posts = phase["slice"]
-            if not phase_posts: continue
-            
-            volume = len(phase_posts)
-            sentiments = [p.get("sentiment_label", "NEUTRAL") for p in phase_posts]
+        seen_terms = set()
+        previous_sentiment = None
+        for period in sorted(weekly.values(), key=lambda item: item["start"]):
+            sentiments = []
+            for post in period["posts"]:
+                ai_analysis = post.get("ai_analysis") or {}
+                sentiment = (post.get("sentiment_label") or ai_analysis.get("sentiment_label") or "NEUTRAL").upper()
+                if sentiment in {"POSITIVE", "NEGATIVE", "NEUTRAL", "ABSTAIN"}:
+                    sentiments.append(sentiment)
             dominant_sentiment = max(set(sentiments), key=sentiments.count) if sentiments else "NEUTRAL"
-            
-            current_entities = set()
-            for p in phase_posts:
-                text = (p.get("text_content") or "").lower()
-                known_entities = ["cisco", "cert-in", "sbi", "hdfc", "ransomware", "malware", "ai", "regulation", "china", "india", "nato"]
-                for ent in known_entities:
-                    if ent in text:
-                        current_entities.add(ent.title())
-            
-            new_mutations = list(current_entities - all_entities_seen)
-            all_entities_seen.update(current_entities)
-            
-            last_time = phase_posts[-1].get("published_at", "Unknown")
-            try:
-                time_obj = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
-                time_str = time_obj.strftime("%b %d, %H:%M")
-            except:
-                time_str = "Recent"
-
-            timeline_data.append({
-                "phase": phase["name"].split(":")[0],
-                "volume": volume,
+            week_label = period["start"].strftime("%b %d, %Y")
+            timeline.append({
+                "week": week_label,
+                "volume": len(period["posts"]),
                 "sentiment": dominant_sentiment,
-                "time": time_str
             })
 
-            if new_mutations:
+            new_terms = [
+                term for term, count in sorted(period["terms"].items(), key=lambda item: item[1], reverse=True)
+                if count >= 2 and term not in seen_terms and term != phrase.lower()
+            ][:3]
+            sentiment_changed = previous_sentiment is not None and dominant_sentiment != previous_sentiment
+            if new_terms or sentiment_changed:
                 mutations.append({
-                    "phase": phase["name"],
-                    "time": time_str,
-                    "new_elements": new_mutations,
-                    "sentiment_shift": dominant_sentiment
+                    "week": week_label,
+                    "time": week_label,
+                    "new_elements": new_terms,
+                    "sentiment_shift": dominant_sentiment,
+                    "previous_sentiment": previous_sentiment,
                 })
+            seen_terms.update(period["terms"])
+            previous_sentiment = dominant_sentiment
 
         return {
-            "narrative": narrative,
-            "total_observations": total,
-            "timeline": timeline_data,
-            "mutations": mutations
+            "narrative": phrase,
+            "total_observations": len(posts),
+            "timeline": timeline,
+            "mutations": mutations,
         }
-
     except PyMongoError as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load mutation data: {str(exc)}") from exc
-
 @app.get("/api/v1/analytics/correlation")
 def get_cross_platform_correlation(q: str = Query(..., description="Topic to track across platforms")):
     try:
@@ -481,7 +486,7 @@ def get_alerts():
 def get_demographics():
     """Generate privacy-safe, inferred demographic aggregations."""
     try:
-        posts = list(raw_posts.find({}, {"_id": 0, "platform": 1, "narrative_name": 1, "text_content": 1}))
+        posts = list(raw_posts.find({}, {"_id": 0, "platform": 1, "narrative_name": 1, "text_content": 1, "content": 1, "language": 1, "lang": 1, "detected_language": 1, "age": 1, "author_age": 1, "age_bracket": 1, "author": 1, "profile": 1}))
         
         if not posts:
             return {"regions": [], "professions": [], "age_brackets": [], "languages": []}
@@ -518,18 +523,93 @@ def get_demographics():
             if not matched:
                 regions["Global"] += 1
 
-        age_brackets = {"18-29": 0, "30-49": 0, "50+": 0}
-        for p in posts:
-            plat = p.get("platform", "").lower()
-            text_len = len(p.get("text_content") or "")
-            if plat == "reddit":
-                age_brackets["18-29"] += 1
-            elif text_len > 150:
-                age_brackets["30-49"] += 1
-            else:
-                age_brackets["50+"] += 1
+        age_ranges = [(13, 17, "13-17"), (18, 24, "18-24"), (25, 34, "25-34"), (35, 44, "35-44"), (45, 54, "45-54"), (55, 64, "55-64"), (65, 120, "65+")]
+        age_brackets = {label: 0 for _, _, label in age_ranges}
+        languages = {}
+        language_codes = {
+            "en": "English", "hi": "Hindi", "mr": "Marathi", "bn": "Bengali", "pa": "Punjabi",
+            "gu": "Gujarati", "ta": "Tamil", "te": "Telugu", "kn": "Kannada", "ml": "Malayalam",
+            "ur": "Urdu", "ar": "Arabic", "zh": "Chinese", "ja": "Japanese", "ko": "Korean",
+            "ru": "Russian", "uk": "Ukrainian", "el": "Greek", "es": "Spanish", "fr": "French", "pt": "Portuguese",
+            "de": "German", "it": "Italian",
+        }
+        language_markers = {
+            "English": {"the", "and", "for", "with", "from", "this", "that", "are", "was", "were", "will"},
+            "Spanish": {"el", "la", "los", "las", "que", "por", "para", "con", "una", "del"},
+            "French": {"les", "des", "une", "est", "pour", "avec", "dans", "sur", "pas", "qui"},
+            "Portuguese": {"uma", "para", "com", "dos", "das", "que", "por", "mais", "não", "são"},
+            "German": {"der", "die", "das", "und", "ist", "mit", "für", "nicht", "auf", "ein"},
+            "Italian": {"che", "del", "della", "una", "per", "con", "sono", "gli", "non", "delle"},
+        }
+        script_languages = {
+            "DEVANAGARI": "Hindi", "BENGALI": "Bengali", "GURMUKHI": "Punjabi", "GUJARATI": "Gujarati",
+            "TAMIL": "Tamil", "TELUGU": "Telugu", "KANNADA": "Kannada", "MALAYALAM": "Malayalam",
+            "HANGUL": "Korean", "HIRAGANA": "Japanese", "KATAKANA": "Japanese", "CJK": "Chinese", "ARABIC": "Arabic", "CYRILLIC": "Russian", "GREEK": "Greek",
+        }
 
-        languages = {"English": len(posts), "Hindi": max(1, len(posts)//10), "Mandarin": max(1, len(posts)//15)}
+        def detect_language(post):
+            supplied = post.get("detected_language") or post.get("language") or post.get("lang")
+            if supplied:
+                code = str(supplied).strip().lower().replace("_", "-").split("-")[0]
+                if code in language_codes:
+                    return language_codes[code]
+                for language in language_codes.values():
+                    if str(supplied).strip().lower() == language.lower():
+                        return language
+
+            text = post.get("text_content") or post.get("content") or ""
+            letters = [char for char in text if char.isalpha()]
+            if not letters:
+                return None
+            script_counts = {}
+            for char in letters:
+                name = unicodedata.name(char, "")
+                for script, language in script_languages.items():
+                    if script in name or (script == "CJK" and ("CJK UNIFIED" in name or "IDEOGRAPH" in name)):
+                        script_counts[language] = script_counts.get(language, 0) + 1
+                        break
+            if script_counts:
+                language, count = max(script_counts.items(), key=lambda item: item[1])
+                if count / len(letters) >= 0.25:
+                    codepoints = {ord(char) for char in text}
+                    if language == "Arabic" and codepoints.intersection({0x0679, 0x0688, 0x0691, 0x06BA, 0x06BE, 0x06D2}):
+                        return "Urdu"
+                    if language == "Russian" and codepoints.intersection({0x0456, 0x0457, 0x0454, 0x0491}):
+                        return "Ukrainian"
+                    return language
+
+            words = set(re.findall(r"[a-záéíóúüñàâçèêëîïôùûüÿœæäöß]+", text.lower()))
+            scores = {language: len(words & markers) for language, markers in language_markers.items()}
+            language, score = max(scores.items(), key=lambda item: item[1])
+            return language if score >= 2 else None
+
+        for post in posts:
+            profile = post.get("profile") if isinstance(post.get("profile"), dict) else {}
+            author = post.get("author") if isinstance(post.get("author"), dict) else {}
+            age_value = post.get("age_bracket") or post.get("author_age") or post.get("age") or profile.get("age") or author.get("age")
+            if isinstance(age_value, str):
+                bracket_match = re.fullmatch(r"\s*(\d{1,2})\s*[-–]\s*(\d{1,2}|\+|\d{1,2}\+)\s*", age_value)
+                if bracket_match:
+                    bracket_text = f"{bracket_match.group(1)}-{bracket_match.group(2).replace('+', '')}"
+                    if bracket_text in age_brackets:
+                        age_brackets[bracket_text] += 1
+                    elif bracket_match.group(2).endswith("+") and bracket_match.group(1) == "65":
+                        age_brackets["65+"] += 1
+                    age_value = None
+                else:
+                    try:
+                        age_value = int(age_value)
+                    except ValueError:
+                        age_value = None
+            if isinstance(age_value, (int, float)) and not isinstance(age_value, bool):
+                for minimum, maximum, label in age_ranges:
+                    if minimum <= age_value <= maximum:
+                        age_brackets[label] += 1
+                        break
+
+            language = detect_language(post)
+            if language:
+                languages[language] = languages.get(language, 0) + 1
         format_data = lambda d: [{"name": k, "value": v} for k, v in d.items() if v > 0]
 
         return {

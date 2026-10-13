@@ -125,17 +125,17 @@ export default function DemographicsView() {
             <Card className="demographics-view__panel">
               <header className="demographics-view__panel-heading">
                 <div className="demographics-view__panel-title"><Users aria-hidden="true" /><h2>Age Bracket</h2></div>
-                <Badge variant="neutral">Platform Heuristic</Badge>
+                <Badge variant="neutral">Profile Data Only</Badge>
               </header>
               {(data.age_brackets || []).length === 0 ? (
-                <div className="demographics-view__empty"><p>No age bracket data available.</p></div>
+                <div className="demographics-view__empty"><p>No explicit age values were present in collected profiles. Age is not guessed from platform or post length.</p></div>
               ) : (
-                <div className="demographics-view__chart">
-                  <ResponsiveContainer width="100%" height={220}>
+                <div className="demographics-view__chart" style={{ height: Math.max(220, (data.age_brackets || []).length * 34) }}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.age_brackets || []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-color-glass-border)" />
                       <XAxis type="number" stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-3)' }} />
-                      <YAxis dataKey="name" type="category" width={72} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
+                      <YAxis dataKey="name" type="category" interval={0} width={72} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} cursor={{ fill: 'var(--ds-color-glass-hover)' }} />
                       <Bar dataKey="value" fill="var(--ds-color-accent)" radius={[0, 4, 4, 0]} />
                     </BarChart>
@@ -151,12 +151,12 @@ export default function DemographicsView() {
               {(data.languages || []).length === 0 ? (
                 <div className="demographics-view__empty"><p>No language data available.</p></div>
               ) : (
-                <div className="demographics-view__chart">
-                  <ResponsiveContainer width="100%" height={220}>
+                <div className="demographics-view__chart" style={{ height: Math.max(220, (data.languages || []).length * 34) }}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.languages || []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-color-glass-border)" />
                       <XAxis type="number" stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-3)' }} />
-                      <YAxis dataKey="name" type="category" width={88} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
+                      <YAxis dataKey="name" type="category" interval={0} width={88} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} cursor={{ fill: 'var(--ds-color-glass-hover)' }} />
                       <Bar dataKey="value" fill="var(--ds-color-accent-bright)" radius={[0, 4, 4, 0]} />
                     </BarChart>
