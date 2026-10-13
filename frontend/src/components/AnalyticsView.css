@@ -38,3 +38,5 @@
   .analytics-view__feed-card { grid-column:auto; }
   .analytics-view__card { padding:var(--ds-space-16); }
 }
+
+.analytics-view__chart-caption { margin: 4px 0 0; color: var(--ds-color-text-3); font-size: var(--ds-type-10); }

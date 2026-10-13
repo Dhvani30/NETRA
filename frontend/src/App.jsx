@@ -247,7 +247,7 @@ function App() {
                     )}
                   </Card>
                   <Card className="analytics-view__card">
-                    <header className="analytics-view__card-header"><h2>Emerging Narratives</h2></header>
+                    <header className="analytics-view__card-header"><div><h2>Emerging Topics</h2><p className="analytics-view__chart-caption">Topics in the last 7 days · compared with the previous 7 days</p></div></header>
                     {narrativeData.length === 0 ? (
                       <div className="analytics-view__empty"><p>No narrative data available.</p></div>
                     ) : (
@@ -257,7 +257,7 @@ function App() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-color-glass-border)" />
                             <XAxis type="number" stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-3)' }} />
                             <YAxis dataKey="name" type="category" width={100} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
-                            <Tooltip contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
+                            <Tooltip formatter={(value, _name, item) => [`${value} posts · ${item.payload.growth_pct >= 0 ? '+' : ''}${item.payload.growth_pct}% vs prior week`, 'Last 7 days']} contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
                             <Bar dataKey="count" fill="var(--ds-color-accent)" />
                           </BarChart>
                         </ResponsiveContainer>

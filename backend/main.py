@@ -182,49 +182,78 @@ def get_sentiment():
     except ImportError as e:
         raise HTTPException(status_code=503, detail="Sentiment analysis dependency is unavailable") from e
 
-def _friendly_narrative_name(name, topic, text):
-    name = str(name or "").strip()
-    if name and not re.fullmatch(r"narrative[_ -]?\w+", name, flags=re.IGNORECASE):
-        return name
+_NARRATIVE_STOP_WORDS = {
+    "about", "after", "again", "also", "among", "around", "because", "been", "before", "being", "and", "are", "but", "can", "for", "has", "how", "its", "not", "our", "the", "was", "who", "you",
+    "between", "could", "during", "from", "have", "into", "just", "more", "most", "other", "over",
+    "said", "same", "some", "such", "than", "that", "their", "them", "then", "there", "these", "they",
+    "this", "those", "through", "under", "very", "were", "what", "when", "where", "which", "while",
+    "with", "would", "your", "will", "https", "http", "www", "com", "news", "today", "latest", "live",
+    "video", "photos", "watch", "read", "update", "updates", "via", "says", "say", "report",
+}
 
-    source = f"{topic or ''} {text or ''}".lower()
-    themes = [
-        (["ransomware", "malware", "cyber", "breach", "hack", "phishing", "vulnerability"], "Cybersecurity"),
-        (["artificial intelligence", " ai ", "machine learning", "deepfake", "chatgpt", "technology"], "AI & Technology"),
-        (["election", "government", "parliament", "minister", "policy", "political"], "Politics & Governance"),
-        (["china", "border", "war", "conflict", "nato", "military", "defence", "defense"], "Geopolitics & Security"),
-        (["market", "economy", "bank", "business", "finance", "stock"], "Business & Economy"),
-        (["health", "hospital", "medical", "disease", " vaccine"], "Health & Medicine"),
-        (["climate", "flood", "weather", "environment", "pollution"], "Climate & Environment"),
-        (["instagram", "youtube", "telegram", "social media", "viral"], "Social Media & Culture"),
-    ]
-    for keywords, label in themes:
-        if any(keyword in source for keyword in keywords):
-            return label
-    return "General News"
+
+def _narrative_timestamp(value):
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _post_topic_terms(text):
+    words = re.findall(r"[a-z][a-z0-9-]{2,}", str(text or "").lower())
+    useful = lambda word: word not in _NARRATIVE_STOP_WORDS
+    terms = {word for word in words if useful(word)}
+    terms.update(f"{left} {right}" for left, right in zip(words, words[1:]) if useful(left) and useful(right) and left != right)
+    return terms
 
 
 @app.get("/api/v1/analytics/narratives")
 def get_narratives():
     try:
-        pipeline = [
-            {"$group": {
-                "_id": {"name": {"$ifNull": ["$narrative_name", ""]}, "cluster": {"$ifNull": ["$narrative_cluster", None]}},
-                "count": {"$sum": 1},
-                "topic": {"$first": "$topic"},
-                "text": {"$first": {"$ifNull": ["$text_content", "$content"]}},
-            }},
-            {"$sort": {"count": -1}}, {"$limit": 50},
-        ]
-        results = list(raw_posts.aggregate(pipeline))
+        now = datetime.now(timezone.utc)
+        recent_start = now - timedelta(days=7)
+        previous_start = now - timedelta(days=14)
+        documents = raw_posts.find(
+            {},
+            {"_id": 0, "text_content": 1, "content": 1, "published_at": 1, "created_at": 1, "timestamp": 1},
+        ).sort("published_at", -1).limit(10000)
         counts = {}
-        for row in results:
-            identity = row.get("_id") or {}
-            name = _friendly_narrative_name(identity.get("name"), row.get("topic"), row.get("text"))
-            counts[name] = counts.get(name, 0) + row["count"]
-        clusters = [{"name": name, "count": count} for name, count in counts.items()]
-        clusters.sort(key=lambda item: item["count"], reverse=True)
-        return {"clusters": clusters[:10]}
+        for post in documents:
+            published_at = next((
+                _narrative_timestamp(post.get(field))
+                for field in ("published_at", "created_at", "timestamp")
+                if post.get(field) is not None
+            ), None)
+            if published_at is None or published_at < previous_start or published_at > now + timedelta(minutes=5):
+                continue
+            text = post.get("text_content") or post.get("content") or ""
+            for term in _post_topic_terms(text):
+                row = counts.setdefault(term, {"recent": 0, "previous": 0})
+                row["recent" if published_at >= recent_start else "previous"] += 1
+
+        clusters = []
+        for name, values in counts.items():
+            recent_count = values["recent"]
+            previous_count = values["previous"]
+            if recent_count < 2:
+                continue
+            growth_pct = round(((recent_count - previous_count) / previous_count) * 100) if previous_count else 100
+            clusters.append({
+                "name": name.title(),
+                "count": recent_count,
+                "previous_count": previous_count,
+                "growth_pct": growth_pct,
+            })
+        clusters.sort(key=lambda item: (item["count"] - item["previous_count"], item["count"], item["growth_pct"]), reverse=True)
+        return {"clusters": clusters[:10], "period_days": 7, "comparison_days": 7}
     except PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
 @app.get("/api/v1/graph/data")
