@@ -256,7 +256,7 @@ function App() {
                           <BarChart data={narrativeData} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-color-glass-border)" />
                             <XAxis type="number" stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-3)' }} />
-                            <YAxis dataKey="name" type="category" width={100} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)' }} />
+                            <YAxis dataKey="name" type="category" width={130} interval={0} stroke="var(--ds-color-text-3)" tick={{ fill: 'var(--ds-color-text-2)', fontSize: 11 }} />
                             <Tooltip formatter={(value, _name, item) => [`${value} posts · ${item.payload.growth_pct >= 0 ? '+' : ''}${item.payload.growth_pct}% vs prior week`, 'Last 7 days']} contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
                             <Bar dataKey="count" fill="var(--ds-color-accent)" />
                           </BarChart>

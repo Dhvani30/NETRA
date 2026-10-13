@@ -188,7 +188,7 @@ _NARRATIVE_STOP_WORDS = {
     "said", "same", "some", "such", "than", "that", "their", "them", "then", "there", "these", "they",
     "this", "those", "through", "under", "very", "were", "what", "when", "where", "which", "while",
     "with", "would", "your", "will", "https", "http", "www", "com", "news", "today", "latest", "live",
-    "video", "photos", "watch", "read", "update", "updates", "via", "says", "say", "report",
+    "video", "photos", "watch", "read", "update", "updates", "via", "says", "say", "report", "link", "links", "bio", "click", "subscribe", "follow", "official", "channel", "post",
 }
 
 
@@ -210,8 +210,7 @@ def _narrative_timestamp(value):
 def _post_topic_terms(text):
     words = re.findall(r"[a-z][a-z0-9-]{2,}", str(text or "").lower())
     useful = lambda word: word not in _NARRATIVE_STOP_WORDS
-    terms = {word for word in words if useful(word)}
-    terms.update(f"{left} {right}" for left, right in zip(words, words[1:]) if useful(left) and useful(right) and left != right)
+    terms = {f"{left} {right}" for left, right in zip(words, words[1:]) if useful(left) and useful(right) and left != right}
     return terms
 
 
