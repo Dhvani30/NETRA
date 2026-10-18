@@ -1,77 +1,163 @@
 # NETRA Intelligence Platform
-### Next-Generation Social Media Intelligence & Narrative Tracking System
 
-**NETRA** is a real-time intelligence dashboard built to monitor, analyze, and visualize social media narratives. Developed for the Smart India Hackathon (SIH) 2026, it processes unstructured social data into clear, actionable intelligence using graph analytics, cross-platform correlation, and privacy-focused demographic tools.
+**Explore public social-media posts, follow emerging topics, and inspect how posts and entities connect.**
 
----
+NETRA is a research and demonstration dashboard built for social-media intelligence workflows. It brings collected posts into one interface and offers text-based topic discovery, estimated sentiment, cross-platform comparisons, investigation search, and a graph view of relationships. The project is designed to help analysts and evaluators explore a corpus; its heuristic outputs should be treated as leads for review, not verified conclusions.
 
-## Key Features
+## Screens
 
-### 1. Real-Time Analytics Dashboard
-- Live sentiment distribution and emerging narrative tracking.
-- High-throughput intelligence feed with platform filters.
+Screenshots are interface captures with example records; displayed data depends on the configured databases.
 
-### 2. Narrative Mutation Tracker
-- Follows how stories evolve over time (e.g., shifting from "Cyber Attack" to "Ransomware").
-- Displays phase-by-phase volume changes, sentiment shifts, and newly introduced entities.
+### Analytics dashboard
 
-### 3. Cross-Platform Correlation
-- Maps a story's lifecycle as it spreads across platforms like X, Reddit, and Telegram.
-- Pinpoints the "patient zero" platform and tracks amplification patterns.
+The dashboard combines a sentiment estimate, candidate emerging topics, and separate Telegram, Instagram, and YouTube feeds.
 
-### 4. Automated Intelligence Alerts
-- Real-time threat detection triggered by data volume spikes, sudden sentiment shifts, and high-value keywords.
-- Auto-refreshing priority queue categorized by Critical, Warning, and Info.
+![NETRA analytics dashboard with sentiment, emerging narratives, and collected post feed](docs/assets/analytics-dashboard.png)
 
-### 5. Privacy-Safe Demographics
-- Infers audience profiles (Profession, Region, Age Bracket) using behavioral heuristics and narrative context.
-- **100% PII-free:** Gathers insights without storing personal user data.
+### Investigation view
 
-### 6. Advanced Network Intelligence (Neo4j)
-- **Top Influencers:** Identifies nodes with the highest degree centrality.
-- **Bridge Nodes:** Detects critical entities connecting separate communities or platforms.
-- **Community Clustering:** Maps the structural groupings within the intelligence graph.
+Search a topic or entity to inspect matching observations, detected keywords, platforms, and available evidence.
 
-### 7. Deep Search & Investigation Mode
-- Context-aware search to isolate specific entities or narratives.
-- Generates a dedicated "Investigation View" showing provenance, activity trends, and targeted evidence feeds.
+![NETRA investigation screen showing matched observations and evidence feed](docs/assets/investigation-view.png)
 
-### 8. Interactive Network Graph
-- Fully zoomable and pannable force-directed graph.
-- Supports subgraph filtering, hover tooltips, and dynamic node highlighting.
+## What you can explore
 
----
+- **Analytics:** Review estimated sentiment and recurring phrases in recently collected posts.
+- **Platform feeds:** Browse collected Telegram, Instagram, and YouTube records separately. Original-post links are shown when the source record includes a usable URL.
+- **Investigation search:** Search post text and review matching records, basic provenance, and keyword-based entity matches.
+- **Narrative tracker:** Compare phrase and sentiment patterns across weekly time buckets for a selected narrative.
+- **Cross-platform view:** Compare matching posts across platforms and their observed timestamps.
+- **Alerts:** View heuristic signals based on corpus volume, sentiment share, platform coverage, and keywords.
+- **Demographics:** Explore language and other aggregate estimates where records contain useful fields.
+- **Network intelligence and graph:** Inspect PostgreSQL graph nodes, edges, degree-based rankings, and node-type summaries.
+- **Guided tour:** Step through an explanation of the dashboard areas.
 
-## Tech Stack
+### How to read the analytics
 
-| Component | Technology |
-| :--- | :--- |
-| **Frontend** | React (Vite), Tailwind CSS, Recharts, `react-force-graph-2d`, Lucide Icons |
-| **Backend API** | Python, FastAPI, Uvicorn, Pydantic |
-| **Databases** | MongoDB (Document/Time-series), Neo4j (Graph/Relationships) |
-| **Data Pipeline** | Custom Python ETL scripts, Regex/Heuristic NLP |
+NETRA currently uses lightweight methods: VADER sentiment scoring, repeated two-word phrase counts, text/keyword matching, and metadata or script-based demographic estimates. These methods can be wrong or incomplete. Cross-platform timing does not establish causation, and inferred demographic attributes are not verified user characteristics. Some demographic charts may be empty when source posts do not include the needed data.
 
----
+## How it is put together
 
-## Architecture & Data Flow
+```mermaid
+flowchart LR
+    Sources[Collection processes] --> Mongo[(MongoDB: raw_posts)]
+    Mongo --> API[FastAPI: messages and analytics]
+    Mongo --> Builder[Manual graph builder]
+    Builder --> PG[(PostgreSQL: graph nodes and edges)]
+    PG --> API
+    API --> UI[React and Vite frontend]
+    UI -->|same-origin /api/v1| API
+```
 
-1. **Ingestion:** Raw social media posts are ingested into **MongoDB**.
-2. **Analytics Engine:** A Python pipeline processes text for sentiment, entities, and narrative clustering.
-3. **Graph Construction:** Relationships (Post $\leftrightarrow$ Entity $\leftrightarrow$ Platform) are mapped and stored in **Neo4j**.
-4. **API Layer:** **FastAPI** serves aggregated analytics and graph payloads to the frontend.
-5. **Visualization:** The **React** dashboard renders real-time charts, alerts, and the interactive force-graph.
+- **Frontend:** React 19, Vite, Recharts, `react-force-graph-2d`, and Lucide icons.
+- **API:** FastAPI and Uvicorn.
+- **Post storage:** MongoDB collection `raw_posts` by default.
+- **Graph storage:** PostgreSQL tables `graph_nodes` and `graph_edges`.
+- **Deployment:** Render configuration runs FastAPI, which serves the prebuilt frontend from `backend/static`.
 
----
+The graph builder is a manual script; the deployed API does not automatically sync new posts into PostgreSQL. The included Reddit ingestor is replay-oriented. The platform scrapers used to populate the other feeds live outside this repository, so those screens require compatible records to be written to MongoDB.
 
-## Getting Started
+## Run locally
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ & npm
-- MongoDB (Running on `localhost:27017`)
-- Neo4j (Running on `bolt://localhost:7687`)
+### Requirements
 
-### 1. Clone the Repository
-```bash
-git clone [https://github.com/your-username/netra-platform.git](https://github.com/your-username/netra-platform.git)
-cd netra-platform
+- Python 3.10 or newer.
+- Node.js `^20.19.0` or `>=22.12.0` (required by the checked-in Vite version).
+- Reachable MongoDB and PostgreSQL instances, with database credentials supplied through environment variables.
+
+### 1. Configure the backend
+
+Set these environment variables in your shell or in a local, untracked `.env` file at the repository root:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `MONGO_URI` | Yes | MongoDB connection string. |
+| `DATABASE_URL` | Yes for health and graph features | PostgreSQL connection string. `POSTGRES_URL` is accepted as a fallback by the graph module. |
+| `DB_NAME` | No | Mongo database name; defaults to `NETRA`. |
+| `COLLECTION_NAME` | No | Mongo collection name; defaults to `raw_posts`. |
+
+Do not commit `.env` or put credentials in source code. The current backend contains hardcoded Mongo fallback values; remove these and rotate any exposed database credentials before using a public deployment.
+
+### 2. Build the frontend
+
+From the repository root:
+
+```powershell
+cd frontend
+npm ci
+npm run build
+```
+
+Copy the Vite build output into the directory FastAPI serves. In PowerShell:
+
+```powershell
+Copy-Item -Path dist\* -Destination ..\backend\static -Recurse -Force
+```
+
+The `static` directory should contain `index.html` and the generated `assets` directory.
+
+### 3. Install and start FastAPI
+
+```powershell
+cd ..\backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
+```
+
+Open [http://localhost:8000/](http://localhost:8000/). The API health endpoint is [http://localhost:8000/health](http://localhost:8000/health).
+
+The frontend uses the relative API path `/api/v1`. Vite is not configured with a development proxy, so running only `npm run dev` will not connect API calls to FastAPI. The build-and-serve steps above run the UI and API on the same origin, as expected by the current configuration.
+
+## API overview
+
+All data endpoints use the `/api/v1` prefix.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /health` | MongoDB and PostgreSQL connectivity status. |
+| `GET /api/v1/messages?limit=20&platform=telegram` | Recent posts, optionally filtered by platform. `limit` is between 1 and 100. |
+| `GET /api/v1/live/summary` | Total and last-week post counts, newest-post details, and platform counts. |
+| `GET /api/v1/analytics/sentiment` | Sentiment counts; missing values may be inferred and written back to MongoDB. |
+| `GET /api/v1/analytics/narratives` | Frequently repeated phrases and recent-period comparisons. |
+| `GET /api/v1/search?q=...` | Text matches, basic provenance, and keyword-based entities. |
+| `GET /api/v1/analytics/mutation?narrative=...` | Weekly activity and observed phrase/sentiment changes. |
+| `GET /api/v1/analytics/correlation?q=...` | Matching post counts and first-seen timestamps grouped by platform. |
+| `GET /api/v1/analytics/alerts` | Current rule-based alert candidates. |
+| `GET /api/v1/analytics/demographics` | Available region, profession, age-bracket, and language aggregates. |
+| `GET /api/v1/graph/data` | Nodes and edges stored in PostgreSQL. |
+| `GET /api/v1/graph/intelligence` | Degree rankings, bridge candidates, and node-type totals. |
+
+## Graph data
+
+After configuring MongoDB and PostgreSQL, run the graph builder from the backend directory to populate the graph tables:
+
+```powershell
+python app/rebuild_graph.py
+```
+
+It reads a bounded set of posts from MongoDB, applies keyword rules to assign topics, narratives, and entities, then upserts nodes and relationships in PostgreSQL. It is not scheduled by the Render service, and it does not remove stale graph rows. Run it only when the configured database is the intended target.
+
+## Deploying on Render
+
+The root `render.yaml` defines a Python web service with `backend` as its root directory. Configure `MONGO_URI` and `DATABASE_URL` in the Render service environment. The service runs Uvicorn and uses `/health` as its health check.
+
+The current Render build command installs backend requirements but does **not** build the React application. Build the frontend and include the resulting files in `backend/static` before deploying frontend changes. The API and UI then share the Render service's origin; the frontend expects `/api/v1` on that same origin.
+
+## Repository notes
+
+- The main graph implementation uses PostgreSQL; Neo4j in the local Docker setup is not used by the current API routes.
+- `backend/app/collectors/reddit_ingestor.py` is the only collector included here and is replay-oriented. Other source collectors are maintained separately.
+- `backend/app/analytic_engine.py` is an optional batch script; some of its scientific Python imports are not listed in `backend/requirements.txt`.
+- `backend/app/seed_diverse_data.py` creates synthetic data. Do not point it at production databases.
+- CORS is broadly configured and the API has no authentication middleware in the current implementation. Review access controls before exposing sensitive or non-public data.
+
+## Further reading
+
+- [Full project handoff](HANDOFF.md) — architecture, screens, routes, operations, and known limitations.
+- [UI migration map](docs/ui-migration-map.md) — frontend design/reference notes.
+
+## License
+
+No license file is currently included. All rights reserved unless the repository owner adds a license.
