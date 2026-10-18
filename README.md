@@ -1,10 +1,15 @@
-# NETRA Intelligence Platform
+<div align="center">
+  <h1>NETRA Intelligence Platform</h1>
+  <p><strong>From scattered public posts to a clearer view of emerging narratives.</strong></p>
+  <p>Explore collected signals, compare platforms, and inspect the connections behind a topic.</p>
+  <p><a href="#what-you-can-explore">Explore features</a> &nbsp; | &nbsp; <a href="#run-locally">Quick start</a> &nbsp; | &nbsp; <a href="#how-it-is-put-together">Architecture</a> &nbsp; | &nbsp; <a href="#api-overview">API</a></p>
+  <a href="#run-locally"><img src="docs/assets/netra-signal-loop.gif" alt="Animated NETRA signal map: posts connect to topics and entities" width="100%"></a>
+  <p><sub>Click the signal map to jump to the quick start.</sub></p>
+</div>
 
-**Explore public social-media posts, follow emerging topics, and inspect how posts and entities connect.**
+NETRA is a research and demonstration dashboard for exploring collected public social-media posts. It combines text-based topic discovery, estimated sentiment, cross-platform comparisons, investigation search, and a graph of post relationships. Its heuristic outputs are leads for review, not verified conclusions.
 
-NETRA is a research and demonstration dashboard built for social-media intelligence workflows. It brings collected posts into one interface and offers text-based topic discovery, estimated sentiment, cross-platform comparisons, investigation search, and a graph view of relationships. The project is designed to help analysts and evaluators explore a corpus; its heuristic outputs should be treated as leads for review, not verified conclusions.
-
-## Screens
+## Interface snapshots
 
 Screenshots are interface captures with example records; displayed data depends on the configured databases.
 
