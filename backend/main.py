@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import PyMongoError
+from app.graph_builder import build_graph_payload
 
 # Load environment variables from .env file
 load_dotenv()
@@ -223,7 +224,7 @@ def get_narratives():
         previous_start = now - timedelta(days=14)
         documents = raw_posts.find(
             {},
-            {"_id": 0, "text_content": 1, "content": 1, "published_at": 1, "created_at": 1, "timestamp": 1},
+            {"_id": 0, "text_content": 1, "content": 1, "narrative_name": 1, "published_at": 1, "created_at": 1, "timestamp": 1},
         ).sort("published_at", -1).limit(10000)
         counts = {}
         for post in documents:
@@ -235,19 +236,24 @@ def get_narratives():
             if published_at is None or published_at < previous_start or published_at > now + timedelta(minutes=5):
                 continue
             text = post.get("text_content") or post.get("content") or ""
-            for term in _post_topic_terms(text):
-                row = counts.setdefault(term, {"recent": 0, "previous": 0})
+            narrative_name = post.get("narrative_name")
+            if isinstance(narrative_name, str) and narrative_name.strip():
+                topics = {narrative_name.strip().casefold(): (narrative_name.strip(), True)}
+            else:
+                topics = {term: (term.title(), False) for term in _post_topic_terms(text)}
+            for key, (name, is_labeled) in topics.items():
+                row = counts.setdefault(key, {"name": name, "is_labeled": is_labeled, "recent": 0, "previous": 0})
                 row["recent" if published_at >= recent_start else "previous"] += 1
 
         clusters = []
-        for name, values in counts.items():
+        for values in counts.values():
             recent_count = values["recent"]
             previous_count = values["previous"]
-            if recent_count < 2:
+            if recent_count < (1 if values["is_labeled"] else 2):
                 continue
             growth_pct = round(((recent_count - previous_count) / previous_count) * 100) if previous_count else 100
             clusters.append({
-                "name": name.title(),
+                "name": values["name"],
                 "count": recent_count,
                 "previous_count": previous_count,
                 "growth_pct": growth_pct,
@@ -258,10 +264,21 @@ def get_narratives():
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
 @app.get("/api/v1/graph/data")
 def get_graph():
-    try: 
-        return _fetch_graph_payload()
-    except Exception as e: 
-        raise HTTPException(status_code=500, detail=f"Graph Error: {str(e)}")
+    try:
+        projection = {
+            "_id": 1,
+            "canonical_id": 1,
+            "platform": 1,
+            "text_content": 1,
+            "content": 1,
+            "metadata": 1,
+            "author_username": 1,
+            "author": 1,
+            "author_id": 1,
+        }
+        return build_graph_payload(raw_posts.find({}, projection))
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=f"Graph Error: {str(e)}") from e
 
 @app.get("/api/v1/search")
 def search_messages(q: str = Query(..., min_length=1)):

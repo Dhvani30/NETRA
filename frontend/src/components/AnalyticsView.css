@@ -18,7 +18,8 @@
 .analytics-view__platform-feed { min-width:0; overflow:hidden; border:var(--ds-space-1) solid var(--ds-color-glass-border); border-radius:var(--ds-radius-md); }
 .analytics-view__platform-feed h3 { margin:0; padding:var(--ds-space-12); border-bottom:var(--ds-space-1) solid var(--ds-color-glass-border); color:var(--ds-color-text-1); font-size:var(--ds-type-13); }
 .analytics-view__platform-empty { margin:0; padding:var(--ds-space-12); color:var(--ds-color-text-3); font-size:var(--ds-type-12); }
-.analytics-view__table { width:100%; border-collapse:collapse; font-size:var(--ds-type-11); }
+.analytics-view__table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:var(--ds-type-11); }
+.analytics-view__table th:first-child,.analytics-view__table td:first-child { width:96px; }
 .analytics-view__table th,.analytics-view__table td { padding:var(--ds-space-8); border-bottom:var(--ds-space-1) solid var(--ds-color-glass-border); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
 .analytics-view__table th { color:var(--ds-color-text-3); font-weight:var(--ds-weight-medium); }
 .analytics-view__table td { color:var(--ds-color-text-2); }

@@ -7,6 +7,7 @@ const NODE_COLORS = {
   Platform: '--ds-color-accent',
   Post: '--ds-color-text-3',
   Narrative: '--ds-color-accent-dim',
+  Topic: '--ds-color-metal-mid',
   Organization: '--ds-color-blue-muted',
   Location: '--ds-color-amber-muted',
   Author: '--ds-color-red-muted'
@@ -118,6 +119,9 @@ export default function NetworkGraph({ graphData, _searchQuery = null, highlight
     }
     return degrees;
   }, [visibleGraph]);
+  const labeledNodeIds = useMemo(() => new Set(
+    [...degreeById.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id]) => id)
+  ), [degreeById]);
   const selectedNode = visibleGraph.nodes.find((node) => node.id === selectedNodeId);
   const typeOptions = useMemo(() => ['All types', ...new Set((sourceGraph?.nodes || []).map((node) => node.group).sort())], [sourceGraph]);
   const connectedNodes = selectedNode ? visibleGraph.links
@@ -158,13 +162,14 @@ export default function NetworkGraph({ graphData, _searchQuery = null, highlight
         <label className="network-graph__search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find an entity, platform, or topic" aria-label="Search graph" />{search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search"><X size={15} /></button>}</label>
         <label className="network-graph__filter"><span>Type</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="Filter by node type">{typeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
       </div>
-      <p className="network-graph__hint">{viewMode === 'entities' ? 'Entity map focuses on recurring topics and entities shared across posts. Open Post network to inspect author nodes. Larger nodes have more connections.' : 'Post network shows every post and its direct relationships.'} Search to focus a node and its immediate connections; click any node for details.</p>
+      <p className="network-graph__hint">{viewMode === 'entities' ? 'Entity map shows topics and entities mentioned together in current database posts. Larger nodes have more connections; thicker lines represent more shared posts. Open Post network to inspect authors.' : 'Post network shows current database posts and their platform, topic, narrative, author, and entity relationships.'} Search to focus a node and its immediate connections; click any node for details.</p>
 
       <div className="network-graph__legend" aria-label="Visible node types">{typeOptions.slice(1).filter((type) => typeFilter === 'All types' || type === typeFilter).map((type) => <span key={type}><i style={{ backgroundColor: `var(${NODE_COLORS[type] || '--ds-color-text-3'})` }} />{type}</span>)}</div>
       <div className="network-graph__canvas">
-        {visibleGraph.nodes.length === 0 ? <div className="network-graph__empty" role="status"><Building aria-hidden="true" /><h3>{graphData?.nodes?.length ? 'No matching graph nodes' : 'No graph data available'}</h3><p>{graphData?.nodes?.length ? 'Try another search or node type.' : 'Run the graph builder to sync MongoDB posts into PostgreSQL.'}</p></div> : <>
+        {visibleGraph.nodes.length === 0 ? <div className="network-graph__empty" role="status"><Building aria-hidden="true" /><h3>{graphData?.nodes?.length ? 'No matching graph nodes' : 'No graph data available'}</h3><p>{graphData?.nodes?.length ? 'Try another search or node type.' : 'No current database posts with text are available to map.'}</p></div> : <>
           <ForceGraph2D
             ref={fgRef} graphData={visibleGraph} width={dimensions.width} height={dimensions.height}
+            onEngineStop={() => fgRef.current?.zoomToFit(400, 80)}
             nodeLabel={(node) => `${node.label} · ${node.group} · ${degreeById.get(node.id) || 0} connections`}
             nodeColor={getNodeColor} nodeRelSize={getNodeSize}
             linkColor={(link) => link.weight > 1 ? 'rgba(135, 150, 210, 0.34)' : 'rgba(135, 150, 210, 0.15)'}
@@ -184,7 +189,7 @@ export default function NetworkGraph({ graphData, _searchQuery = null, highlight
               ctx.beginPath(); ctx.arc(node.x, node.y, size + (selected || hovered ? 2 : 0), 0, 2 * Math.PI);
               ctx.fillStyle = getNodeColor(node); ctx.fill();
               if (selected || hovered || queryMatch) { ctx.beginPath(); ctx.arc(node.x, node.y, size + 5, 0, 2 * Math.PI); ctx.strokeStyle = 'rgba(186, 195, 255, 0.9)'; ctx.lineWidth = 1.5 / globalScale; ctx.stroke(); }
-              if (globalScale > 1.35 || selected || hovered || queryMatch) {
+              if ((globalScale > 0.8 && labeledNodeIds.has(node.id)) || selected || hovered || queryMatch) {
                 const fontSize = Math.max(9, Math.min(14, 11 / globalScale));
                 ctx.font = `${selected || hovered ? 600 : 400} ${fontSize}px Space Grotesk, sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'top';

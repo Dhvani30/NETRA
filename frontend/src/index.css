@@ -177,7 +177,7 @@ body { background: var(--netra-bg); color: var(--netra-text); font-family: 'Spac
 /* Responsive application shell: layout-only; screen state and callbacks stay in App.jsx. */
 .netra-app {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   height: 100vh;
@@ -224,7 +224,7 @@ body { background: var(--netra-bg); color: var(--netra-text); font-family: 'Spac
   border-radius: var(--ds-radius-nav);
   text-align: left;
 }
-.netra-toolbar > .ds-button--secondary {
+.netra-toolbar > .ds-button--secondary:not(.tour-launch) {
   flex: 0 0 auto;
   justify-content: flex-start;
   width: 100%;
@@ -311,7 +311,7 @@ body { background: var(--netra-bg); color: var(--netra-text); font-family: 'Spac
     width: auto;
     min-height: var(--ds-space-32);
   }
-  .netra-toolbar > .ds-button--secondary {
+  .netra-toolbar > .ds-button--secondary:not(.tour-launch) {
     width: auto;
     margin: 0 0 0 auto;
   }

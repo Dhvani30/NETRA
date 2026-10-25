@@ -72,11 +72,58 @@ def extract_entities(text):
 
 def _upsert_nodes_edges(nodes, edges):
     with get_connection() as connection, connection.cursor() as cursor:
-        execute_values(cursor, """INSERT INTO graph_nodes (id,label,node_type,properties) VALUES %s
-            ON CONFLICT (id) DO UPDATE SET label=EXCLUDED.label,node_type=EXCLUDED.node_type,properties=EXCLUDED.properties""",
-            [(node_id, label, kind, Json(properties)) for node_id, label, kind, properties in nodes])
-        execute_values(cursor, """INSERT INTO graph_edges (source,target,edge_type) VALUES %s
-            ON CONFLICT (source,target,edge_type) DO NOTHING""", edges)
+        cursor.execute("DELETE FROM graph_edges")
+        cursor.execute("DELETE FROM graph_nodes")
+        if nodes:
+            execute_values(cursor, """INSERT INTO graph_nodes (id,label,node_type,properties) VALUES %s
+                ON CONFLICT (id) DO UPDATE SET label=EXCLUDED.label,node_type=EXCLUDED.node_type,properties=EXCLUDED.properties""",
+                [(node_id, label, kind, Json(properties)) for node_id, label, kind, properties in nodes])
+        if edges:
+            execute_values(cursor, """INSERT INTO graph_edges (source,target,edge_type) VALUES %s
+                ON CONFLICT (source,target,edge_type) DO NOTHING""", edges)
+
+
+def _build_graph_records(documents):
+    all_nodes, all_edges = {}, set()
+
+    for doc in documents:
+        post_id = str(doc.get("canonical_id") or f"{doc.get('platform', 'unk')}_{doc.get('_id')}")
+        platform = str(doc.get("platform") or "UNKNOWN").upper()
+        text = str(doc.get("text_content") or doc.get("content") or "")
+        if not text.strip():
+            continue
+        snippet = text[:50].replace("\n", " ") + ("..." if len(text) > 50 else "")
+        metadata = doc.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        topic = get_topic(text, metadata, platform)
+        narrative = get_narrative(text, topic)
+
+        all_nodes[post_id] = (post_id, snippet or post_id, "Post", {"text": text[:300], "platform": platform})
+        relationships = [("Platform", platform, "POSTED_ON"), ("Topic", topic, "ABOUT"), ("Narrative", narrative, "PART_OF")]
+
+        author = str(doc.get('author_username') or doc.get('author') or doc.get('author_id', '')).strip()
+        if author and author.lower() not in {'deleted', '[deleted]', 'unknown', 'anon'}:
+            relationships.append(('Author', author, 'AUTHORED'))
+
+        for entity_type, values in extract_entities(text).items():
+            relationships.extend((entity_type, value, "MENTIONS" if entity_type == "Organization" else "ASSOCIATED_WITH") for value in values)
+
+        for kind, label, relation in relationships:
+            entity_id = f"{kind}:{label}"
+            all_nodes[entity_id] = (entity_id, label, kind, {})
+            all_edges.add((post_id, entity_id, relation))
+
+    return all_nodes, all_edges
+
+
+def build_graph_payload(documents):
+    all_nodes, all_edges = _build_graph_records(documents)
+    return {
+        "nodes": [{"id": node_id, "label": label, "group": kind} for node_id, label, kind, _properties in all_nodes.values()],
+        "links": [{"source": source, "target": target, "type": relation} for source, target, relation in sorted(all_edges)],
+    }
 
 def build_knowledge_graph():
     print("[*] Syncing NETRA semantic graph into PostgreSQL...")
@@ -86,44 +133,11 @@ def build_knowledge_graph():
         collection = mongo_client[DB_NAME][COLLECTION_NAME]
         
         # 🚨 CRITICAL FIX: Fetch ALL platforms (including youtube, instagram) instead of just reddit|x|telegram
-        documents = list(collection.find({}).limit(1500))
-        
-        documents = [doc for doc in documents if (doc.get("text_content") or doc.get("content") or "").strip()]
-        if not documents:
-            print("[-] No valid documents found.")
-            return
+        documents = list(collection.find({}))
         
         initialize_pool()
-        all_nodes, all_edges = {}, set()
-        
-        for doc in documents:
-            post_id = str(doc.get("canonical_id") or f"{doc.get('platform', 'unk')}_{doc.get('_id')}")
-            platform = str(doc.get("platform") or "UNKNOWN").upper()
-            text = str(doc.get("text_content") or doc.get("content") or "")
-            snippet = text[:50].replace("\n", " ") + ("..." if len(text) > 50 else "")
-            metadata = doc.get("metadata") or {}
-            
-            topic = get_topic(text, metadata, platform)
-            narrative = get_narrative(text, topic)
-            
-            post_node = (post_id, snippet or post_id, "Post", {"text": text[:300], "platform": platform})
-            all_nodes[post_id] = post_node
-            
-            relationships = [("Platform", platform, "POSTED_ON"), ("Topic", topic, "ABOUT"), ("Narrative", narrative, "PART_OF")]
-            
-            author = str(doc.get('author_username') or doc.get('author') or doc.get('author_id', '')).strip()
-            if author and author.lower() not in {'deleted', '[deleted]', 'unknown', 'anon'}:
-                relationships.append(('Author', author, 'AUTHORED'))
-                
-            for entity_type, values in extract_entities(text).items():
-                relationships.extend((entity_type, value, "MENTIONS" if entity_type == "Organization" else "ASSOCIATED_WITH") for value in values)
-            
-            for kind, label, relation in relationships:
-                entity_id = f"{kind}:{label}"
-                all_nodes[entity_id] = (entity_id, label, kind, {})
-                all_edges.add((post_id, entity_id, relation))
-        
-        _upsert_nodes_edges(list(all_nodes.values()), list(all_edges))
+        all_nodes, all_edges = _build_graph_records(documents)
+        _upsert_nodes_edges(list(all_nodes.values()), sorted(all_edges))
         print(f"[+] Upserted {len(all_nodes)} nodes and {len(all_edges)} edges from {len(documents)} posts.")
         
     except Exception as e:

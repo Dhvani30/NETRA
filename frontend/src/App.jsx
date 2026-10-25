@@ -134,6 +134,10 @@ function App() {
     if (mins < 60) return `${mins}m ago`;
     return `${Math.floor(mins / 60)}h ago`;
   };
+  const sentimentTotal = sentimentData.reduce((total, item) => total + item.count, 0);
+  const sentimentChartData = sentimentData
+    .filter((item) => item.count > 0)
+    .map((item) => ({ ...item, percentage: sentimentTotal ? (item.count / sentimentTotal) * 100 : 0 }));
 
   return (
     <div className={tourOpen ? "netra-app min-h-screen p-6 tour-is-open" : "netra-app min-h-screen p-6"}>
@@ -236,10 +240,10 @@ function App() {
                       <div className="analytics-view__chart">
                         <ResponsiveContainer width="100%" height={240}>
                           <PieChart>
-                            <Pie data={sentimentData.filter((entry) => entry.count > 0)} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
-                              {sentimentData.filter((entry) => entry.count > 0).map((entry) => <Cell key={entry.label} fill={SENTIMENT_COLORS[entry.label] || 'var(--ds-color-text-3)'} />)}
+                            <Pie data={sentimentChartData} dataKey="percentage" nameKey="label" cx="50%" cy="50%" outerRadius={100} label={({ percent }) => `${Math.round(percent * 100)}%`}>
+                              {sentimentChartData.map((entry) => <Cell key={entry.label} fill={SENTIMENT_COLORS[entry.label] || 'var(--ds-color-text-3)'} />)}
                             </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
+                            <Tooltip formatter={(value, _name, item) => [`${Number(value).toFixed(1)}% (${item.payload.count} posts)`, item.payload.label]} contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
                             <Legend wrapperStyle={{ color: 'var(--ds-color-text-2)' }} />
                           </PieChart>
                         </ResponsiveContainer>
