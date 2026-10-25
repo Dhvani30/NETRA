@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">NETRA Intelligence Platform</title>
+  <desc id="desc">A midnight-blue signal map connects collected posts, emerging topics, platforms, and a network graph.</desc>
+  <defs>
+    <linearGradient id="background" x1="74" y1="20" x2="1134" y2="336" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11152F"/>
+      <stop offset=".55" stop-color="#101329"/>
+      <stop offset="1" stop-color="#090B19"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="124" y1="86" x2="1090" y2="278" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B8A4FF"/>
+      <stop offset=".53" stop-color="#7798FF"/>
+      <stop offset="1" stop-color="#74E0D1"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(475 0 0 205 816 100)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7167F5" stop-opacity=".27"/>
+      <stop offset="1" stop-color="#7167F5" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" stroke="#ABB8FF" stroke-opacity=".06"/>
+    </pattern>
+    <filter id="softGlow" x="-.5" y="-.5" width="2" height="2" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="340" rx="26" fill="url(#background)"/>
+  <rect width="1200" height="340" rx="26" fill="url(#grid)"/>
+  <rect width="1200" height="340" rx="26" fill="url(#glow)"/>
+  <rect x="1" y="1" width="1198" height="338" rx="25" stroke="#B5B9FF" stroke-opacity=".22"/>
+
+  <g opacity=".4" stroke="url(#accent)" stroke-width="1.5">
+    <path d="m755 83 116 42 106-47 115 59"/>
+    <path d="m755 83 47 121 69-79 93 71 13-118"/>
+    <path d="m802 204 105 42 57-50 76 34 52-93"/>
+    <path d="m977 78 13 118 126 34"/>
+    <path d="m871 125 36 121 133-16"/>
+  </g>
+  <g fill="#9CA9FF">
+    <circle cx="755" cy="83" r="4"/><circle cx="871" cy="125" r="4"/>
+    <circle cx="977" cy="78" r="5"/><circle cx="1092" cy="137" r="4"/>
+    <circle cx="802" cy="204" r="5"/><circle cx="907" cy="246" r="4"/>
+    <circle cx="964" cy="196" r="6"/><circle cx="1040" cy="230" r="4"/>
+    <circle cx="1116" cy="204" r="5"/>
+  </g>
+  <g fill="#8D79FF" opacity=".28" filter="url(#softGlow)">
+    <circle cx="964" cy="196" r="19"/><circle cx="977" cy="78" r="15"/>
+  </g>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="72" y="83" fill="#B9A8FF" font-size="13" font-weight="700" letter-spacing="3.5">PUBLIC SIGNALS · HUMAN CONTEXT</text>
+    <text x="68" y="166" fill="#F5F4FF" font-size="64" font-weight="700" letter-spacing="-2">NETRA</text>
+    <text x="72" y="205" fill="#C7C9E4" font-size="23" font-weight="500" letter-spacing="4">INTELLIGENCE PLATFORM</text>
+    <text x="74" y="251" fill="#A6AACB" font-size="16">Follow emerging narratives across collected public posts.</text>
+  </g>
+  <path d="M72 285H352" stroke="url(#accent)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="364" cy="285" r="3" fill="#8E80FF"/>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="1.5">
+    <text x="761" y="296" fill="#B8BDE0">POSTS</text>
+    <text x="884" y="296" fill="#B8BDE0">TOPICS</text>
+    <text x="1018" y="296" fill="#B8BDE0">CONNECTIONS</text>
+  </g>
+</svg>

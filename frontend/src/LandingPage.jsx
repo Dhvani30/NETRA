@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_URL } from './config';
-import { ArrowRight, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ExternalLink, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import './LandingPage.css';
 
 const formatNumber = (value) => Number(value || 0).toLocaleString();
@@ -76,7 +76,12 @@ export default function LandingPage() {
           <a href="#how-it-works">How it works</a>
           <a href="#privacy">Privacy</a>
         </nav>
-        <DashboardLink className="metal-button site-header__action">Open dashboard <ArrowRight size={16} /></DashboardLink>
+        <div className="site-header__actions">
+          <a className="site-header__github" href="https://github.com/Dhvani30/NETRA.git" target="_blank" rel="noopener noreferrer">
+            GitHub <ExternalLink size={15} aria-hidden="true" />
+          </a>
+          <DashboardLink className="metal-button site-header__action">Open dashboard <ArrowRight size={16} /></DashboardLink>
+        </div>
       </header>
 
       <main>

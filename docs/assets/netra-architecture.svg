@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">NETRA system architecture</title>
+  <desc id="desc">Collection processes send current posts to MongoDB. FastAPI reads those records and serves analytics to a React dashboard. An optional manual graph builder writes separate graph records to PostgreSQL.</desc>
+  <defs>
+    <linearGradient id="bg" x1="30" y1="10" x2="1170" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11152F"/>
+      <stop offset="1" stop-color="#090B19"/>
+    </linearGradient>
+    <linearGradient id="line" x1="194" y1="166" x2="1024" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A98DFF"/>
+      <stop offset=".5" stop-color="#7897FF"/>
+      <stop offset="1" stop-color="#76DCCC"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#202447"/>
+      <stop offset="1" stop-color="#151932"/>
+    </linearGradient>
+    <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#03040C" flood-opacity=".38"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="m0 0 10 5-10 5z" fill="#8F91DF"/>
+    </marker>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#A4AEF4" fill-opacity=".14"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="430" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="430" rx="24" fill="url(#dots)"/>
+  <rect x="1" y="1" width="1198" height="428" rx="23" stroke="#AAB3F4" stroke-opacity=".2"/>
+  <text x="40" y="48" fill="#B9A8FF" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="2.6">LIVE DATA PATH</text>
+
+  <path d="M240 164h72m192 0h72m192 0h72m192 0h72" stroke="url(#line)" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M402 214v74h114" stroke="#777DAF" stroke-width="1.5" stroke-dasharray="5 6" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="48" y="100" width="192" height="128" rx="16" fill="url(#card)" stroke="#A68FFF" stroke-opacity=".44"/>
+    <rect x="312" y="100" width="192" height="128" rx="16" fill="url(#card)" stroke="#8F9AFF" stroke-opacity=".46"/>
+    <rect x="576" y="100" width="192" height="128" rx="16" fill="url(#card)" stroke="#8299FF" stroke-opacity=".48"/>
+    <rect x="840" y="100" width="192" height="128" rx="16" fill="url(#card)" stroke="#78D8D1" stroke-opacity=".48"/>
+  </g>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <text x="72" y="133" fill="#B9A8FF" font-size="11" font-weight="700" letter-spacing="1.5">01 · INPUT</text>
+    <text x="72" y="165" fill="#F1F0FF" font-size="19" font-weight="650">Collectors</text>
+    <text x="72" y="190" fill="#A9ADCC" font-size="12">Compatible source jobs</text>
+    <text x="72" y="207" fill="#A9ADCC" font-size="12">write public post records</text>
+
+    <text x="336" y="133" fill="#AEB2FF" font-size="11" font-weight="700" letter-spacing="1.5">02 · CURRENT DATA</text>
+    <text x="336" y="165" fill="#F1F0FF" font-size="19" font-weight="650">MongoDB</text>
+    <text x="336" y="190" fill="#A9ADCC" font-size="12">raw_posts · configured source</text>
+    <text x="336" y="207" fill="#A9ADCC" font-size="12">of current post text</text>
+
+    <text x="600" y="133" fill="#AEBBFF" font-size="11" font-weight="700" letter-spacing="1.5">03 · ANALYSIS</text>
+    <text x="600" y="165" fill="#F1F0FF" font-size="19" font-weight="650">FastAPI</text>
+    <text x="600" y="190" fill="#A9ADCC" font-size="12">Analytics · search · graph</text>
+    <text x="600" y="207" fill="#A9ADCC" font-size="12">Same-origin /api/v1</text>
+
+    <text x="864" y="133" fill="#8DE0D6" font-size="11" font-weight="700" letter-spacing="1.5">04 · EXPLORE</text>
+    <text x="864" y="165" fill="#F1F0FF" font-size="19" font-weight="650">React UI</text>
+    <text x="864" y="190" fill="#A9ADCC" font-size="12">Dashboard · investigations</text>
+    <text x="864" y="207" fill="#A9ADCC" font-size="12">Evidence · visual patterns</text>
+  </g>
+  <circle cx="280" cy="164" r="4" fill="#AA95FF"/>
+  <circle cx="544" cy="164" r="4" fill="#939CFF"/>
+  <circle cx="808" cy="164" r="4" fill="#84B3F5"/>
+
+  <rect x="516" y="278" width="220" height="100" rx="14" fill="#15172B" stroke="#767C9F" stroke-opacity=".48"/>
+  <text x="538" y="306" fill="#979BB8" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="1.4">OPTIONAL · MANUAL JOB</text>
+  <text x="538" y="334" fill="#E0E2F5" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="650">Graph builder → PostgreSQL</text>
+  <text x="538" y="356" fill="#9CA1BE" font-family="Segoe UI,Arial,sans-serif" font-size="11">Separate output · not the live graph API source</text>
+  <text x="48" y="335" fill="#9DA2C3" font-family="Segoe UI,Arial,sans-serif" font-size="12">Human review</text>
+  <text x="48" y="356" fill="#767D9F" font-family="Segoe UI,Arial,sans-serif" font-size="11">Verify any signal against its source post.</text>
+</svg>
