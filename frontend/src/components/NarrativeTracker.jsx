@@ -108,7 +108,7 @@ export default function NarrativeTracker() {
               <div className="narrative-tracker__empty"><p>No timeline observations available.</p></div>
             ) : (
               <div className="narrative-tracker__chart">
-                <ResponsiveContainer width="100%" height={140}>
+                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data.timeline}>
                     <defs>
                       <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
