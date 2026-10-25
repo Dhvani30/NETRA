@@ -125,6 +125,7 @@ def build_graph_payload(documents):
         "links": [{"source": source, "target": target, "type": relation} for source, target, relation in sorted(all_edges)],
     }
 
+
 def build_knowledge_graph():
     print("[*] Syncing NETRA semantic graph into PostgreSQL...")
     mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)

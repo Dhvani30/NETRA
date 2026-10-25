@@ -161,6 +161,7 @@ body {
 .alerts-view__header,
 .demographics-view__header {
   position: relative;
+  flex-shrink: 0;
   overflow: hidden;
   border-color: rgba(190,174,255,.2);
   background: linear-gradient(115deg, rgba(155,114,255,.10), rgba(255,255,255,.035) 44%, rgba(86,130,196,.045));

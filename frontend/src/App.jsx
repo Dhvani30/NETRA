@@ -244,14 +244,20 @@ function App() {
                               {sentimentChartData.map((entry) => <Cell key={entry.label} fill={SENTIMENT_COLORS[entry.label] || 'var(--ds-color-text-3)'} />)}
                             </Pie>
                             <Tooltip formatter={(value, _name, item) => [`${Number(value).toFixed(1)}% (${item.payload.count} posts)`, item.payload.label]} contentStyle={{ backgroundColor: 'var(--ds-color-bg-elevated)', border: '1px solid var(--ds-color-glass-border)', borderRadius: 'var(--ds-radius-md)', color: 'var(--ds-color-text-1)' }} itemStyle={{ color: 'var(--ds-color-text-1)' }} />
-                            <Legend wrapperStyle={{ color: 'var(--ds-color-text-2)' }} />
+                            <Legend
+                              formatter={(label) => {
+                                const sentiment = sentimentChartData.find((entry) => entry.label === label);
+                                return `${label} ${sentiment?.percentage.toFixed(0) || 0}%`;
+                              }}
+                              wrapperStyle={{ color: 'var(--ds-color-text-2)' }}
+                            />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
                     )}
                   </Card>
                   <Card className="analytics-view__card">
-                    <header className="analytics-view__card-header"><div><h2>Emerging Topics</h2><p className="analytics-view__chart-caption">Topics in the last 7 days · compared with the previous 7 days</p></div></header>
+                    <header className="analytics-view__card-header"><div><h2>Emerging Topics</h2><p className="analytics-view__chart-caption">Live phrases found in post text · last 7 days vs previous 7 days</p></div></header>
                     {narrativeData.length === 0 ? (
                       <div className="analytics-view__empty"><p>No narrative data available.</p></div>
                     ) : (

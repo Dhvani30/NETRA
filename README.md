@@ -85,31 +85,29 @@ Do not commit `.env` or put credentials in source code. The current backend cont
 
 ### 2. Build the frontend
 
-From the repository root:
+Run these commands from the repository root:
 
 ```powershell
-cd frontend
+Set-Location .\frontend
 npm ci
 npm run build
 ```
 
-Copy the Vite build output into the directory FastAPI serves. In PowerShell:
-
-```powershell
-Copy-Item -Path dist\* -Destination ..\backend\static -Recurse -Force
-```
-
-The `static` directory should contain `index.html` and the generated `assets` directory.
+Vite writes the production build directly to `backend/static`, the directory FastAPI serves.
 
 ### 3. Install and start FastAPI
 
+Return to the repository root first if you opened a new PowerShell terminal, then run:
+
 ```powershell
-cd ..\backend
+Set-Location .\backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload --port 8000
 ```
+
+If your terminal is still in `frontend` after building, use `Set-Location ..\backend` instead.
 
 Open [http://localhost:8000/](http://localhost:8000/). The API health endpoint is [http://localhost:8000/health](http://localhost:8000/health).
 
@@ -125,14 +123,14 @@ All data endpoints use the `/api/v1` prefix.
 | `GET /api/v1/messages?limit=20&platform=telegram` | Recent posts, optionally filtered by platform. `limit` is between 1 and 100. |
 | `GET /api/v1/live/summary` | Total and last-week post counts, newest-post details, and platform counts. |
 | `GET /api/v1/analytics/sentiment` | Sentiment counts; missing values may be inferred and written back to MongoDB. |
-| `GET /api/v1/analytics/narratives` | Frequently repeated phrases and recent-period comparisons. |
+| `GET /api/v1/analytics/narratives` | Live keywords and phrases extracted from recent post text, compared with the previous 7-day period. |
 | `GET /api/v1/search?q=...` | Text matches, basic provenance, and keyword-based entities. |
 | `GET /api/v1/analytics/mutation?narrative=...` | Weekly activity and observed phrase/sentiment changes. |
 | `GET /api/v1/analytics/correlation?q=...` | Matching post counts and first-seen timestamps grouped by platform. |
 | `GET /api/v1/analytics/alerts` | Current rule-based alert candidates. |
 | `GET /api/v1/analytics/demographics` | Available region, profession, age-bracket, and language aggregates. |
-| `GET /api/v1/graph/data` | Nodes and edges stored in PostgreSQL. |
-| `GET /api/v1/graph/intelligence` | Degree rankings, bridge candidates, and node-type totals. |
+| `GET /api/v1/graph/data` | A graph projection built from current MongoDB posts. |
+| `GET /api/v1/graph/intelligence` | Repeated phrases and platform coverage calculated from current MongoDB post text. |
 
 ## Graph data
 

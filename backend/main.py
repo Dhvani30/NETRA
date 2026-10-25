@@ -47,14 +47,6 @@ if os.path.exists(static_dir):
 def _mongo_documents_to_json(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return json.loads(json_util.dumps(documents))
 
-def _fetch_graph_payload() -> dict[str, list[dict[str, str]]]:
-    with get_connection() as connection, connection.cursor() as cursor:
-        cursor.execute("SELECT id, label, node_type FROM graph_nodes ORDER BY id")
-        nodes = [{"id": row[0], "label": row[1], "group": row[2]} for row in cursor.fetchall()]
-        cursor.execute("SELECT source, target, edge_type FROM graph_edges ORDER BY source, target, edge_type")
-        links = [{"source": row[0], "target": row[1], "type": row[2]} for row in cursor.fetchall()]
-    return {"nodes": nodes, "links": links}
-
 @app.get("/health")
 def health():
     try:
@@ -191,6 +183,13 @@ _NARRATIVE_STOP_WORDS = {
     "this", "those", "through", "under", "very", "were", "what", "when", "where", "which", "while",
     "with", "would", "your", "will", "https", "http", "www", "com", "news", "today", "latest", "live",
     "video", "photos", "watch", "read", "update", "updates", "via", "says", "say", "report", "link", "links", "bio", "click", "subscribe", "follow", "official", "channel", "post",
+    "indian", "express", "guardian", "telegram", "youtube", "instagram", "facebook", "twitter", "reddit",
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    "january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+    "new", "one", "two", "three", "says", "said", "saying", "named", "ahead", "why", "does",
+    "people", "killed", "remark", "remarks",
+    "cnn", "breaking", "full", "story", "social", "media", "tap", "here",
 }
 
 
@@ -198,8 +197,10 @@ def _narrative_timestamp(value):
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, str):
+        value = value.strip()
+        value = re.sub(r"([+-]\d{2}:\d{2})\.\d+(?:Z)?$", r"\1", value)
         try:
-            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return None
     else:
@@ -210,9 +211,19 @@ def _narrative_timestamp(value):
 
 
 def _post_topic_terms(text):
-    words = re.findall(r"[a-z][a-z0-9-]{2,}", str(text or "").lower())
-    useful = lambda word: word not in _NARRATIVE_STOP_WORDS
-    terms = {f"{left} {right}" for left, right in zip(words, words[1:]) if useful(left) and useful(right) and left != right}
+    content = re.sub(r"https?://\S+|www\.\S+", " ", str(text or ""), flags=re.IGNORECASE)
+    content = re.sub(r"\bvia\b.*$", " ", content, flags=re.IGNORECASE | re.DOTALL)
+    content = re.sub(r"[*_`#]", " ", content)
+    words = re.findall(r"[a-z][a-z0-9-]{2,}", content.lower())
+    useful_words = [word for word in words if word not in _NARRATIVE_STOP_WORDS]
+    terms = set(useful_words)
+    terms.update(
+        f"{left} {right}"
+        for left, right in zip(words, words[1:])
+        if left not in _NARRATIVE_STOP_WORDS
+        and right not in _NARRATIVE_STOP_WORDS
+        and left != right
+    )
     return terms
 
 
@@ -224,41 +235,54 @@ def get_narratives():
         previous_start = now - timedelta(days=14)
         documents = raw_posts.find(
             {},
-            {"_id": 0, "text_content": 1, "content": 1, "narrative_name": 1, "published_at": 1, "created_at": 1, "timestamp": 1},
+            {
+                "_id": 0,
+                "text_content": 1,
+                "content": 1,
+                "published_at": 1,
+                "created_at": 1,
+                "timestamp": 1,
+                "scraped_at": 1,
+                "ingested_at": 1,
+                "collected_at": 1,
+            },
         ).sort("published_at", -1).limit(10000)
         counts = {}
         for post in documents:
             published_at = next((
-                _narrative_timestamp(post.get(field))
-                for field in ("published_at", "created_at", "timestamp")
-                if post.get(field) is not None
+                parsed
+                for field in ("published_at", "created_at", "timestamp", "scraped_at", "ingested_at", "collected_at")
+                if (parsed := _narrative_timestamp(post.get(field))) is not None
             ), None)
             if published_at is None or published_at < previous_start or published_at > now + timedelta(minutes=5):
                 continue
             text = post.get("text_content") or post.get("content") or ""
-            narrative_name = post.get("narrative_name")
-            if isinstance(narrative_name, str) and narrative_name.strip():
-                topics = {narrative_name.strip().casefold(): (narrative_name.strip(), True)}
-            else:
-                topics = {term: (term.title(), False) for term in _post_topic_terms(text)}
-            for key, (name, is_labeled) in topics.items():
-                row = counts.setdefault(key, {"name": name, "is_labeled": is_labeled, "recent": 0, "previous": 0})
+            for term in _post_topic_terms(text):
+                row = counts.setdefault(term, {"recent": 0, "previous": 0})
                 row["recent" if published_at >= recent_start else "previous"] += 1
 
         clusters = []
-        for values in counts.values():
+        for term, values in counts.items():
             recent_count = values["recent"]
             previous_count = values["previous"]
-            if recent_count < (1 if values["is_labeled"] else 2):
+            if recent_count < 1:
                 continue
             growth_pct = round(((recent_count - previous_count) / previous_count) * 100) if previous_count else 100
             clusters.append({
-                "name": values["name"],
+                "name": term.title(),
                 "count": recent_count,
                 "previous_count": previous_count,
                 "growth_pct": growth_pct,
             })
-        clusters.sort(key=lambda item: (item["count"] - item["previous_count"], item["count"], item["growth_pct"]), reverse=True)
+        clusters.sort(
+            key=lambda item: (
+                item["count"] - item["previous_count"],
+                item["count"],
+                len(item["name"].split()),
+                item["growth_pct"],
+            ),
+            reverse=True,
+        )
         return {"clusters": clusters[:10], "period_days": 7, "comparison_days": 7}
     except PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"DB Error: {str(e)}")
@@ -643,38 +667,69 @@ def get_demographics():
 
 @app.get("/api/v1/graph/intelligence")
 def get_advanced_network_intelligence():
-    """Return graph degree, bridge, and type-group analytics."""
+    """Summarize repeated phrases and their cross-platform presence in stored posts."""
     try:
-        with get_connection() as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM graph_nodes")
-            total_nodes = cursor.fetchone()[0]
-            if total_nodes == 0:
-                return {"influencers": [], "bridges": [], "communities": [], "total_nodes": 0,
-                        "message": "PostgreSQL graph is empty. Run graph_builder.py first."}
-            cursor.execute("""SELECT n.label,n.node_type,d.degree FROM graph_nodes n JOIN (
-                SELECT node_id,COUNT(*) degree FROM (SELECT source node_id FROM graph_edges UNION ALL SELECT target FROM graph_edges) i GROUP BY node_id
-                ) d ON d.node_id=n.id ORDER BY d.degree DESC,n.label LIMIT %s""", (5,))
-            influencers = [{"name": r[0] or "Unknown Node", "type": r[1] or "Entity", "degree": r[2]} for r in cursor.fetchall()]
-            cursor.execute("""WITH neighbor_types AS (
-                SELECT e.source node_id,n.node_type FROM graph_edges e JOIN graph_nodes n ON n.id=e.target
-                UNION ALL SELECT e.target,n.node_type FROM graph_edges e JOIN graph_nodes n ON n.id=e.source
-                ), scores AS (SELECT node_id,COUNT(DISTINCT node_type) bridge_score FROM neighbor_types GROUP BY node_id HAVING COUNT(DISTINCT node_type)>1)
-                SELECT n.label,s.bridge_score FROM scores s JOIN graph_nodes n ON n.id=s.node_id ORDER BY s.bridge_score DESC,n.label LIMIT %s""", (5,))
-            bridges = [{"name": r[0], "bridge_score": r[1]} for r in cursor.fetchall()]
-            if len(bridges) < 3:
-                cursor.execute("""SELECT n.label,n.node_type,COUNT(e.node_id) degree FROM graph_nodes n LEFT JOIN (
-                    SELECT source node_id FROM graph_edges UNION ALL SELECT target FROM graph_edges) e ON e.node_id=n.id
-                    GROUP BY n.id ORDER BY n.node_type,degree DESC,n.label""")
-                seen_names = {item["name"] for item in bridges}; seen_types = set()
-                for name, node_type, degree in cursor.fetchall():
-                    if degree and name not in seen_names and node_type not in seen_types:
-                        bridges.append({"name": name, "bridge_score": degree}); seen_names.add(name); seen_types.add(node_type)
-                    if len(bridges) >= 5: break
-            cursor.execute("SELECT node_type,COUNT(*) size FROM graph_nodes GROUP BY node_type ORDER BY size DESC,node_type")
-            communities = [{"community": r[0] or "Unknown", "size": r[1]} for r in cursor.fetchall()]
-            return {"influencers": influencers, "bridges": bridges, "communities": communities, "total_nodes": total_nodes}
-    except Exception as exc:
-        print(f"PostgreSQL graph intelligence error: {exc}")
+        projection = {
+            "platform": 1,
+            "text_content": 1,
+            "content": 1,
+        }
+        post_counts = {}
+        topic_platforms = {}
+        topic_examples = {}
+        platform_counts = {}
+        total_posts = 0
+
+        for post in raw_posts.find({}, projection):
+            text = post.get("text_content") or post.get("content") or ""
+            if not str(text).strip():
+                continue
+
+            total_posts += 1
+            platform = str(post.get("platform") or "Unknown").strip().title()
+            platform_counts[platform] = platform_counts.get(platform, 0) + 1
+            example_text = re.sub(r"\s+", " ", str(text)).strip()
+            for term in _post_topic_terms(text):
+                post_counts[term] = post_counts.get(term, 0) + 1
+                topic_platforms.setdefault(term, set()).add(platform)
+                topic_examples.setdefault(term, {"platform": platform, "text": example_text[:180]})
+
+        top_phrases = [
+            {
+                "name": term.title(),
+                "type": "Observed phrase",
+                "posts": count,
+                "example_post": topic_examples[term],
+            }
+            for term, count in sorted(post_counts.items(), key=lambda item: (-item[1], item[0]))
+            if " " in term and count >= 2
+        ]
+        cross_platform_phrases = [
+            {
+                "name": term.title(),
+                "type": "Observed phrase",
+                "platform_count": len(platforms),
+                "posts": post_counts[term],
+                "platforms": sorted(platforms),
+                "example_post": topic_examples[term],
+            }
+            for term, platforms in topic_platforms.items()
+            if " " in term and len(platforms) > 1 and post_counts[term] >= 2
+        ]
+        top_phrases = top_phrases[:5]
+        cross_platform_phrases.sort(key=lambda item: (-item["platform_count"], -item["posts"], item["name"]))
+
+        return {
+            "top_phrases": top_phrases,
+            "cross_platform_phrases": cross_platform_phrases[:5],
+            "platforms": [
+                {"platform": platform, "count": count}
+                for platform, count in sorted(platform_counts.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "total_posts": total_posts,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except PyMongoError as exc:
         raise HTTPException(status_code=500, detail=f"Graph intelligence failed: {str(exc)}") from exc
 
 @app.on_event("shutdown")
